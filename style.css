@@ -65,3 +65,7 @@ nav a.actif { color:var(--accent); font-weight:700; }
 dialog.modale { width:min(560px, calc(100vw - 24px)); max-height:calc(100vh - 24px); overflow:auto; border:1px solid var(--bord); border-radius:14px; padding:16px; background:var(--carte); color:var(--texte); }
 dialog.modale::backdrop { background:rgba(0,0,0,.5); }
 .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+
+/* Import */
+.puces { margin:6px 0 0; padding-left:18px; list-style:disc; }
+.puces li { display:list-item; border:0; padding:2px 0; font-size:.9rem; }

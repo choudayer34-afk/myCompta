@@ -5,6 +5,7 @@ import { demarrer, arreter, abonner } from "./store.js";
 import * as vueComptes from "./comptes.js";
 import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
+import * as vueImport from "./import.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,6 +46,9 @@ function naviguer() {
   let onglet = "comptes";
   if (compte) {
     vue = vueOperations.monter(principal, { id: decodeURIComponent(compte[1]) });
+  } else if (hash === "#/import") {
+    onglet = "import";
+    vue = vueImport.monter(principal);
   } else if (hash === "#/categories") {
     onglet = "categories";
     vue = vueCategories.monter(principal);

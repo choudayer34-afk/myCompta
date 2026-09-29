@@ -63,6 +63,19 @@ export function lot() {
   };
 }
 
+// Écriture de nombreux documents (import). Nécessite une connexion : chaque lot attend la confirmation du serveur.
+export async function ecrireParLots(ecritures, progression) {
+  const TAILLE = 400;
+  for (let i = 0; i < ecritures.length; i += TAILLE) {
+    const b = writeBatch(db);
+    for (const [nom, id, donnees] of ecritures.slice(i, i + TAILLE)) {
+      b.set(doc(db, "users", etat.uid, nom, id), donnees, { merge: true });
+    }
+    await b.commit();
+    if (progression) progression(Math.min(i + TAILLE, ecritures.length), ecritures.length);
+  }
+}
+
 export function libelleCategorie(c) {
   const p = c.parentId && etat.categories.find((x) => x.id === c.parentId);
   return p ? `${p.nom} › ${c.nom}` : c.nom;
