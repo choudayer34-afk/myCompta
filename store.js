@@ -5,8 +5,9 @@ import { db } from "./firebase.js";
 export { serverTimestamp };
 
 // Copie locale de toutes les données de l'utilisateur, mise à jour en direct.
-export const etat = { uid: null, comptes: [], categories: [], operations: [] };
-const charge = { comptes: false, categories: false, operations: false };
+export const etat = { uid: null, comptes: [], categories: [], operations: [], planifiees: [] };
+const charge = { comptes: false, categories: false, operations: false, planifiees: false };
+const serveur = { comptes: false, categories: false, operations: false, planifiees: false };
 const abonnes = new Set();
 let arrets = [];
 let planifie = false;
@@ -21,17 +22,20 @@ function notifier() {
 }
 
 export function abonner(f) { abonnes.add(f); return () => abonnes.delete(f); }
-export const pret = () => charge.comptes && charge.categories && charge.operations;
+export const pret = () => charge.comptes && charge.categories && charge.operations && charge.planifiees;
+// Données à jour : lues depuis le serveur (ou appareil hors connexion, donc seule source disponible).
+export const donneesFiables = () => pret() && (!navigator.onLine || (serveur.comptes && serveur.categories && serveur.operations && serveur.planifiees));
 
 export function demarrer(uid) {
   arreter();
   etat.uid = uid;
-  for (const nom of ["comptes", "categories", "operations"]) {
+  for (const nom of ["comptes", "categories", "operations", "planifiees"]) {
     arrets.push(onSnapshot(
       collection(db, "users", uid, nom),
       (snap) => {
         etat[nom] = snap.docs.map((d) => ({ ...d.data({ serverTimestamps: "estimate" }), id: d.id }));
         charge[nom] = true;
+        serveur[nom] = !(snap.metadata && snap.metadata.fromCache);
         notifier();
       },
       (err) => console.error(nom, err)
@@ -43,8 +47,8 @@ export function arreter() {
   arrets.forEach((a) => a());
   arrets = [];
   etat.uid = null;
-  etat.comptes = []; etat.categories = []; etat.operations = [];
-  charge.comptes = charge.categories = charge.operations = false;
+  etat.comptes = []; etat.categories = []; etat.operations = []; etat.planifiees = [];
+  for (const k of Object.keys(charge)) { charge[k] = false; serveur[k] = false; }
   notifier();
 }
 
@@ -74,6 +78,20 @@ export async function ecrireParLots(ecritures, progression) {
     await b.commit();
     if (progression) progression(Math.min(i + TAILLE, ecritures.length), ecritures.length);
   }
+}
+
+// Comme ecrireParLots, mais tous les lots sont mis en file immédiatement : fonctionne aussi hors connexion.
+export function ecrireEnParallele(ecritures) {
+  const TAILLE = 400;
+  const promesses = [];
+  for (let i = 0; i < ecritures.length; i += TAILLE) {
+    const b = writeBatch(db);
+    for (const [nom, id, donnees] of ecritures.slice(i, i + TAILLE)) {
+      b.set(doc(db, "users", etat.uid, nom, id), donnees, { merge: true });
+    }
+    promesses.push(b.commit());
+  }
+  return Promise.all(promesses);
 }
 
 export function libelleCategorie(c) {

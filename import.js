@@ -1,6 +1,8 @@
 import { etat, ecrireParLots, lot } from "./store.js";
+import { genererEcheances } from "./echeancier.js";
+import { libelleFrequence, echeancesDues } from "./planning.js";
 import { soldeCompte, soldePointe, recalerSoldeInitial } from "./calc.js";
-import { euros, versCentimes } from "./format.js";
+import { euros, versCentimes, aujourdhui, dateFr } from "./format.js";
 import { h, selecteur, champ } from "./ui.js";
 import { decoder, parseCsv, lire, detecterFormat, analyser, statutDepuis } from "./importcsv.js";
 
@@ -16,13 +18,14 @@ export function monter(conteneur) {
   const iFichier = h("input", { type: "file", accept: ".csv,text/csv,text/plain" });
   const iFormat = selecteur([["MJA", "Mois/Jour/Année (12/31/25)"], ["JMA", "Jour/Mois/Année (31/12/25)"]], "MJA");
   const iType = selecteur([["categorie", "Catégorie"], ["nature", "Moyen de paiement (nature)"], ["ignorer", "Ignorer"]], "categorie");
-  const bilan = h("div");
+  const iPassees = selecteur([["derniere", "Créer seulement la dernière échéance de chaque planification"], ["toutes", "Créer toutes les échéances arrivées à terme"]], "derniere");
   const bouton = h("button", { class: "cache" }, "Importer");
 
   const options = h("div", { class: "carte cache" },
     h("h2", {}, "Options"),
     champ("Format des dates du fichier", iFormat),
-    champ("La colonne « Type » correspond à", iType));
+    champ("La colonne « Type » correspond à", iType),
+    champ("Échéances passées des opérations planifiées", iPassees));
 
   conteneur.replaceChildren(
     h("div", { class: "carte" },
@@ -86,10 +89,23 @@ export function monter(conteneur) {
       noeuds.push(h("p", {}, `Virements : ${plan.appariees} apparié(s) entre deux comptes` +
         (plan.sansContrepartie ? `, ${plan.sansContrepartie} sans opération miroir (importés comme opération simple, avec la nature « virement »).` : ".")));
     }
-    if (plan.recurrentes.length) {
+    if (plan.nbPlanifiees) {
+      const nouvelles = planifieesAEcrire().length;
+      noeuds.push(h("p", {}, h("strong", {}, `${plan.nbPlanifiees} opérations planifiées`),
+        ` (dont ${plan.virementsPlanifies} virement(s) entre comptes), ${nouvelles} nouvelle(s). Les échéances arrivées à terme seront créées automatiquement en « en cours ».`));
+      const prevues = planifieesAEcrire();
+      const enRetard = prevues.filter((x) => x.dates.length > 1);
+      noeuds.push(h("p", {}, `Échéances arrivées à terme à créer maintenant : ${prevues.reduce((s, x) => s + x.nbCreees, 0)}.`));
+      if (enRetard.length) {
+        noeuds.push(liste("Planifications avec plusieurs échéances passées (vérifiez l'option ci-dessus)",
+          enRetard.slice(0, 12).map((x) => `${x.d.nom} : ${x.dates.length} échéances depuis le ${dateFr(x.dates[0])}`)));
+      }
+      noeuds.push(liste("Fréquences du fichier", [...plan.frequences].map(([brut, code]) => `${brut} → ${code ? libelleFrequence(code) : "non reconnue"}`)));
+    }
+    if (plan.inconnues.length) {
       noeuds.push(h("div", { class: "champ" },
-        h("p", {}, `${plan.recurrentes.length} opération(s) répétitive(s) ne sont pas importées à cette étape (elles seront traitées avec l'échéancier). Relancez l'import à ce moment-là.`),
-        h("ul", { class: "puces" }, plan.recurrentes.slice(0, 8).map((l) => h("li", {}, `${l.description} – ${l.frequency} – ${l.amount}`)))));
+        h("p", { class: "erreur" }, `${plan.inconnues.length} opération(s) répétitive(s) avec une fréquence non reconnue : non importées. Envoyez-moi les fréquences ci-dessus.`),
+        h("ul", { class: "puces" }, plan.inconnues.slice(0, 8).map((l) => h("li", {}, `${l.description} – ${l.frequency} – ${l.amount}`)))));
     }
     if (plan.ignoreesTaxes) noeuds.push(h("p", { class: "note" }, `${plan.ignoreesTaxes} ligne(s) ont une valeur dans la colonne « Taxes » : elle n'est pas reprise.`));
     if (plan.erreurs.length) {
@@ -97,12 +113,25 @@ export function monter(conteneur) {
     }
 
     zone.replaceChildren(h("div", { class: "carte" }, noeuds));
-    bouton.classList.toggle("cache", plan.nbOps === 0);
-    bouton.textContent = `Importer ${plan.nbOps} opérations`;
+    const total = plan.nbOps + plan.nbPlanifiees;
+    bouton.classList.toggle("cache", total === 0);
+    bouton.textContent = plan.nbPlanifiees ? `Importer ${plan.nbOps} opérations et ${plan.nbPlanifiees} planifiées` : `Importer ${plan.nbOps} opérations`;
     bouton.disabled = false;
   }
 
+  // Planifications à écrire (celles déjà présentes ne sont jamais réécrites), avec l'option d'échéances passées appliquée.
+  function planifieesAEcrire() {
+    const deja = new Set(etat.planifiees.map((p) => p.id));
+    const jusqua = aujourdhui();
+    return plan.ecritures.filter((e) => e[0] === "planifiees" && !deja.has(e[1])).map(([n, id, d]) => {
+      const { dates } = echeancesDues({ ...d, id }, jusqua);
+      const derniere = dates.length > 1 && iPassees.value === "derniere" ? dates[dates.length - 1] : null;
+      return { id, d, dates, ecriture: [n, id, derniere ? { ...d, prochaine: derniere } : d], nbCreees: derniere ? 1 : dates.length };
+    });
+  }
+
   iFormat.addEventListener("change", afficher);
+  iPassees.addEventListener("change", afficher);
   iType.addEventListener("change", afficher);
 
   iFichier.addEventListener("change", async () => {
@@ -129,29 +158,39 @@ export function monter(conteneur) {
   });
 
   bouton.addEventListener("click", async () => {
-    if (!plan || !plan.nbOps) return;
+    if (!plan || !(plan.nbOps + plan.nbPlanifiees)) return;
     if (!navigator.onLine) { alert("Une connexion est nécessaire pour importer."); return; }
-    if (!confirm(`Importer ${plan.nbOps} opérations dans l'application ?`)) return;
+    if (!confirm(`Importer ${plan.nbOps} opérations et ${plan.nbPlanifiees} opérations planifiées dans l'application ?`)) return;
     bouton.disabled = true;
-    iFichier.disabled = iFormat.disabled = iType.disabled = true;
+    iFichier.disabled = iFormat.disabled = iType.disabled = iPassees.disabled = true;
     const suivi = h("p", { class: "note" }, "Import en cours…");
     zone.prepend(suivi);
     try {
-      await ecrireParLots(plan.ecritures, (fait, total) => { suivi.textContent = `Import en cours : ${fait} / ${total}`; });
+      // Une planification déjà présente n'est jamais réécrite (sa prochaine échéance a pu avancer).
+      const planifieesChoisies = planifieesAEcrire().map((x) => x.ecriture);
+      const aEcrire = [...plan.ecritures.filter((e) => e[0] !== "planifiees"), ...planifieesChoisies];
+      await ecrireParLots(aEcrire, (fait, total) => { suivi.textContent = `Import en cours : ${fait} / ${total}`; });
+      suivi.textContent = "Création des échéances arrivées à terme…";
+      await new Promise((r) => setTimeout(r, 400));
+      const gen = genererEcheances();
+      await gen.fini;
       const resultat = h("div", { class: "carte" },
         h("h2", {}, "Import terminé"),
-        h("p", {}, `${plan.nbOps} opérations enregistrées.`),
+        h("p", {}, `${plan.nbOps} opérations et ${plan.nbPlanifiees} opérations planifiées enregistrées.`),
+        gen.nb ? h("p", {}, `${gen.nb} échéance(s) arrivée(s) à terme créée(s) en « en cours ».`) : null,
         h("p", {}, "Recalage des soldes : saisissez, pour chaque compte, le solde « en cours » affiché par iCompta. Le solde initial est calculé pour que l'application affiche le même montant. Le solde pointé doit alors correspondre aussi ; sinon, des statuts diffèrent."),
         ...(rafraichir = [], plan.comptes.map(blocRecalage)),
         h("a", { href: "#/comptes" }, "Voir les comptes"));
       zone.replaceChildren(resultat);
       bouton.classList.add("cache");
+      iFichier.disabled = iFormat.disabled = iType.disabled = iPassees.disabled = false;
+      iFichier.value = "";
     } catch (e) {
       console.error(e);
       suivi.className = "erreur";
       suivi.textContent = "Échec de l'import : " + e.message + ". Vous pouvez relancer : les opérations déjà enregistrées ne seront pas dupliquées.";
       bouton.disabled = false;
-      iFichier.disabled = iFormat.disabled = iType.disabled = false;
+      iFichier.disabled = iFormat.disabled = iType.disabled = iPassees.disabled = false;
     }
   });
 

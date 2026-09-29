@@ -1,11 +1,12 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { auth } from "./firebase.js";
-import { demarrer, arreter, abonner } from "./store.js";
+import { demarrer, arreter, abonner, donneesFiables } from "./store.js";
 import * as vueComptes from "./comptes.js";
 import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
 import * as vueImport from "./import.js";
+import * as vueEcheancier from "./echeancier.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,6 +47,9 @@ function naviguer() {
   let onglet = "comptes";
   if (compte) {
     vue = vueOperations.monter(principal, { id: decodeURIComponent(compte[1]) });
+  } else if (hash === "#/echeancier") {
+    onglet = "echeancier";
+    vue = vueEcheancier.monter(principal);
   } else if (hash === "#/import") {
     onglet = "import";
     vue = vueImport.monter(principal);
@@ -59,7 +63,16 @@ function naviguer() {
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", () => { if (auth.currentUser) naviguer(); });
-abonner(() => vue && vue.maj && vue.maj());
+// Création automatique des échéances arrivées à terme, dès que les données sont à jour
+let generationEnCours = false;
+function tenterGeneration() {
+  if (generationEnCours || !auth.currentUser || !donneesFiables()) return;
+  generationEnCours = true;
+  try { vueEcheancier.genererEcheances(); } catch (e) { console.error(e); }
+  generationEnCours = false;
+}
+abonner(() => { if (vue && vue.maj) vue.maj(); tenterGeneration(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tenterGeneration(); });
 
 onAuthStateChanged(auth, (user) => {
   const connecte = !!user;

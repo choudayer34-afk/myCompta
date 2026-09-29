@@ -69,3 +69,4 @@ dialog.modale::backdrop { background:rgba(0,0,0,.5); }
 /* Import */
 .puces { margin:6px 0 0; padding-left:18px; list-style:disc; }
 .puces li { display:list-item; border:0; padding:2px 0; font-size:.9rem; }
+.ligne.terminee { opacity:.55; }

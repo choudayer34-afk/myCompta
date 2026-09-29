@@ -1,5 +1,6 @@
 // Analyse d'un export CSV d'iCompta. Aucun accès à Firebase ici : le module produit un plan d'écritures.
 import { versCentimes, sansAccent } from "./format.js";
+import { frequenceDepuis } from "./planning.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 
@@ -138,7 +139,8 @@ const RE_VIREMENT = /^virement (?:de la|de l'|du|des|de|vers|au|a) (.+)$/;
 export function analyser(lignes, options, existant) {
   const { formatDate, typeVers } = options;
   const erreurs = [];
-  const recurrentes = [];
+  const recur = [], inconnues = [];
+  const frequences = new Map();
   const kinds = new Map(), statuts = new Map();
   const inc = (m, k) => m.set(k, (m.get(k) || 0) + 1);
 
@@ -184,13 +186,20 @@ export function analyser(lignes, options, existant) {
   let ignoreesTaxes = 0;
   for (const l of lignes) {
     if (!l.account && !l.date && !l.amount) continue;
-    if (!estUnique(l.frequency)) { recurrentes.push(l); continue; }
+    const repetitive = !estUnique(l.frequency);
     const date = parseDate(l.date, formatDate);
     const montant = montantEnCentimes(l.amount);
     if (!l.account) { erreurs.push(`Ligne ${l.n} : compte manquant`); continue; }
     if (!date) { erreurs.push(`Ligne ${l.n} : date invalide « ${l.date} »`); continue; }
     if (montant === null) { erreurs.push(`Ligne ${l.n} : montant invalide « ${l.amount} »`); continue; }
     if (l.taxes && montantEnCentimes(l.taxes)) ignoreesTaxes++;
+    if (repetitive) {
+      const code = frequenceDepuis(l.frequency);
+      frequences.set(l.frequency, code);
+      if (!code) { inconnues.push(l); continue; }
+      recur.push({ l, date, montant, compte: comptes.get(l.account), virement: estVirement(l.kind), code });
+      continue;
+    }
     inc(kinds, l.kind || "(vide)"); inc(statuts, l.status || "(vide)");
     ops.push({ l, date, montant, compte: comptes.get(l.account), virement: estVirement(l.kind) });
   }
@@ -246,12 +255,48 @@ export function analyser(lignes, options, existant) {
     o.compte.nbOps++;
     if (statut !== "annule") o.compte.solde += o.montant;
   }
+  // Opérations planifiées (répétitives) : un virement dont la ligne miroir existe devient une seule planification.
+  const indexR = new Map();
+  const cleR = (o) => `${o.compte.brut}|${o.date}|${o.montant}|${o.code}`;
+  recur.forEach((o, i) => { if (o.virement) { const k = cleR(o); if (!indexR.has(k)) indexR.set(k, []); indexR.get(k).push(i); } });
+  const pairesR = new Map();
+  recur.forEach((o, i) => {
+    if (!o.virement || pairesR.has(i)) return;
+    const m = sansAccent(o.l.description).match(RE_VIREMENT);
+    const autre = m && trouverCompte(m[1]);
+    if (!autre || autre.brut === o.compte.brut) return;
+    const liste = indexR.get(`${autre.brut}|${o.date}|${-o.montant}|${o.code}`) || [];
+    const j = liste.find((x) => x !== i && !pairesR.has(x));
+    if (j !== undefined) { pairesR.set(i, j); pairesR.set(j, i); }
+  });
+  const vusR = new Map();
+  let nbPlanifiees = 0, virementsPlanifies = 0;
+  recur.forEach((o, i) => {
+    const partenaire = pairesR.get(i);
+    if (partenaire !== undefined && o.montant > 0) return; // traité avec le côté débiteur
+    const { l } = o;
+    const base = ["plan", l.account, o.date, o.montant, l.description, l.frequency].join("|");
+    const n = (vusR.get(base) || 0) + 1; vusR.set(base, n);
+    const id = "pl" + cyrb53(base + "#" + n).toString(36);
+    const fin = l.ending ? parseDate(l.ending, formatDate) : null;
+    const lie = partenaire !== undefined ? recur[partenaire].compte.id : null;
+    if (lie) virementsPlanifies++;
+    ecritures.push(["planifiees", id, {
+      nom: l.description || "(sans nom)", commentaire: l.comment || "", montant: o.montant,
+      compteId: o.compte.id, virementCompteId: lie, info: l.info || "",
+      nature: o.virement ? "virement" : typeVers === "nature" ? natureDepuis(l.type) : "autre",
+      categorieId: o.virement ? null : typeVers === "categorie" ? categorieId(l.type) : null,
+      frequence: o.code, prochaine: o.date, jourAncre: +o.date.slice(8, 10), dateFin: fin, cree: i + 1
+    }]);
+    nbPlanifiees++;
+  });
+
   for (const c of categories.values()) {
     if (!c.existe) ecritures.push(["categories", c.id, { nom: c.nom, parentId: null, couleur: "#2563eb" }]);
   }
 
   return {
     comptes: [...comptes.values()], categories: [...categories.values()], ecritures, erreurs,
-    recurrentes, kinds, statuts, appariees, sansContrepartie, ignoreesTaxes, nbOps: ops.length
+    inconnues, frequences, nbPlanifiees, virementsPlanifies, kinds, statuts, appariees, sansContrepartie, ignoreesTaxes, nbOps: ops.length
   };
 }
