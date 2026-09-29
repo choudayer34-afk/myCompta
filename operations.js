@@ -6,6 +6,7 @@ import { formCompte } from "./comptes.js";
 import { NATURES, STATUTS } from "./constantes.js";
 import { formMasse } from "./masse.js";
 import { formTableau } from "./tableau.js";
+import { formRapide } from "./rapide.js";
 
 export { NATURES, STATUTS };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
@@ -151,8 +152,9 @@ export function monter(conteneur, { id }) {
   const liste = h("div", { class: "liste" });
   const bSelect = h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Sélectionner");
   const bTableau = h("button", { type: "button", class: "sec", onclick: () => compte() && formTableau({ compteId: id }) }, "Saisie en tableau");
+  const bRapide = h("button", { type: "button", class: "sec", onclick: () => compte() && formRapide({ compteId: id }) }, "Tableau rapide");
   const info = h("p", { class: "note" });
-  const actionsVue = h("div", { class: "actions-vue" }, bSelect, bTableau);
+  const actionsVue = h("div", { class: "actions-vue" }, bRapide, bTableau, bSelect);
   const nbSel = h("span", { class: "nb" });
   const barreSel = h("div", { class: "barre-selection cache" }, nbSel,
     h("button", { type: "button", class: "sec", onclick: () => { affichees.forEach((o) => choisies.add(o.id)); majListe(); } }, "Tout"),

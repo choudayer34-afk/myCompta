@@ -126,3 +126,11 @@ nav a { font-size:.85rem; }
 .totaux h3 { margin:0 0 8px; font-size:1rem; }
 .total-ligne { display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; font-size:1rem; }
 .total-ligne.gras { font-size:1.15rem; font-weight:700; }
+
+/* Saisie rapide en tableau */
+.rapide-grille .cellule { display:flex; flex-direction:column; }
+.rapide-grille td.centre { text-align:center; }
+.rapide-grille td.centre input { width:20px; height:20px; }
+.rapide-grille th:nth-child(1) { width:26%; } .rapide-grille th:nth-child(3) { width:24%; } .rapide-grille th:nth-child(4), .rapide-grille th:nth-child(5) { width:9%; }
+.rapide-grille input[type=text] { padding:8px 6px; min-width:0; }
+tr.doublon input[type=text] { border-color:var(--alerte); }

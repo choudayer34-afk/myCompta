@@ -66,3 +66,41 @@ export function doublonsProbables(operations, compteId, nom, valides, sens) {
   const existants = new Set(operations.filter((o) => o.compteId === compteId && o.statut !== "annule" && sansAccent(o.nom).trim() === n).map((o) => cle(o.date, o.montant)));
   return new Set(valides.filter((v) => existants.has(cle(v.date, sens * v.montant))).map((v) => v.i));
 }
+
+// Montant signé en centimes : « -125,00 EUR », « +3 128,84 EUR », « −12,5 € ». Sans signe = débit.
+export function montantSigne(texte) {
+  const t = String(texte || "").replace(/EUR|€/gi, "").replace(/[−–—]/g, "-").trim();
+  if (!t) return null;
+  const c = versCentimes(t);
+  if (c === null || c === 0) return null;
+  return t.startsWith("+") ? Math.abs(c) : c > 0 ? -c : c;
+}
+
+const RE_DATE_SEUL = /^\d{1,2}[\/.\-]\d{1,2}([\/.\-]\d{2,4})?$/;
+const RE_MONTANT = /^[+\-−–—]?\s*\d[\d\s  .,]*\s*(EUR|€)?$/i;
+
+// Texte copié depuis un site bancaire ou un tableur. Formats reconnus :
+//  - une opération par ligne : date, titre, montant séparés par une tabulation ou un point-virgule ;
+//  - un bloc par opération : la date, le titre puis le montant, chacun sur sa ligne (lignes vides tolérées).
+// Retourne [{ date, titre, montant }] (montant en texte d'origine).
+export function analyserReleve(texte) {
+  const sortie = [];
+  let cour = null;
+  const clore = () => { if (cour && cour.date && cour.titre.length && cour.montant) sortie.push({ date: cour.date, titre: cour.titre.join(" "), montant: cour.montant }); cour = null; };
+  for (const brut of String(texte || "").split(/\r?\n/)) {
+    const l = brut.replace(/[  ]/g, " ").trim();
+    if (!l) continue;
+    const champs = l.split(/[\t;]+/).map((x) => x.trim()).filter(Boolean);
+    if (champs.length >= 3 && RE_DATE_SEUL.test(champs[0]) && RE_MONTANT.test(champs[champs.length - 1])) {
+      clore();
+      sortie.push({ date: champs[0], titre: champs.slice(1, -1).join(" "), montant: champs[champs.length - 1] });
+      continue;
+    }
+    if (RE_DATE_SEUL.test(l)) { clore(); cour = { date: l, titre: [], montant: null }; continue; }
+    if (!cour) continue;
+    if (cour.titre.length && !cour.montant && RE_MONTANT.test(l) && /[,.]\d{1,2}(\s*(EUR|€))?$|^[+\-−–—]/i.test(l)) { cour.montant = l; clore(); continue; }
+    if (!cour.montant) cour.titre.push(l);
+  }
+  clore();
+  return sortie;
+}
