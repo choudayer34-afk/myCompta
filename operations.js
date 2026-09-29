@@ -1,4 +1,4 @@
-import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees } from "./store.js";
+import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele } from "./store.js";
 import { lignesAvecSolde, soldePointe } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
@@ -119,6 +119,8 @@ const PAGE = 200;
 export function monter(conteneur, { id }) {
   let recherche = "";
   let limite = PAGE;
+  let nonPointees = false;   // filtre « à pointer » (statut en cours)
+  let affichees = [];        // opérations actuellement listées (après filtres)
   const compte = () => etat.comptes.find((c) => c.id === id);
 
   const titre = h("strong", { class: "titre-vue" });
@@ -128,9 +130,26 @@ export function monter(conteneur, { id }) {
     h("button", { class: "sec", onclick: () => compte() && formCompte(compte()) }, "Modifier"));
   const iRecherche = h("input", { type: "search", placeholder: "Recherche", class: "recherche", autocomplete: "off" });
   iRecherche.addEventListener("input", () => { recherche = iRecherche.value; limite = PAGE; majListe(); });
+  const bFiltre = h("button", { type: "button", class: "sec filtre", onclick: () => { nonPointees = !nonPointees; limite = PAGE; majListe(); } }, "À pointer");
+  const bTout = h("button", { type: "button", class: "sec cache", onclick: () => {
+    const cibles = affichees.filter((o) => o.statut === "encours");
+    if (!cibles.length) return;
+    if (!confirm(`Pointer les ${cibles.length} opération(s) affichées ?`)) return;
+    const date = aujourdhui();
+    ecrireEnParallele(cibles.map((o) => ["operations", o.id, { statut: "pointe", datePointage: date }])).catch((e) => { console.error(e); alert("Échec du pointage : " + e.message); });
+  } }, "Tout pointer");
+  const barre = h("div", { class: "barre" }, iRecherche, bFiltre, bTout);
   const liste = h("div", { class: "liste" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), iRecherche, liste, ajout);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), barre, liste, ajout);
+
+  // Pointage rapide d'une opération (en cours <-> pointé) sans ouvrir la fiche
+  function basculer(o) {
+    const pointe = o.statut === "pointe";
+    const l = lot();
+    l.set("operations", o.id, { statut: pointe ? "encours" : "pointe", datePointage: pointe ? null : aujourdhui() });
+    l.envoyer();
+  }
 
   function correspond(o, q, nomsCat) {
     const cible = sansAccent([o.nom, o.commentaire, o.info, nomsCat.get(o.categorieId), libelleNature(o.nature), euros(o.montant), dateFr(o.date)].join(" "));
@@ -144,11 +163,18 @@ export function monter(conteneur, { id }) {
     titre.textContent = c.nom;
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
     solde.textContent = `${lignes.length} opérations – En cours : ${euros(lignes.length ? lignes[0].solde : c.soldeInitial || 0)} – Pointé : ${euros(soldePointe(c, etat.operations))}`;
+    const aPointer = lignes.filter((x) => x.statut === "encours");
+    if (aPointer.length) solde.textContent += ` – À pointer : ${aPointer.length} (${euros(aPointer.reduce((s, x) => s + x.montant, 0))})`;
+    bFiltre.classList.toggle("actif-filtre", nonPointees);
+    bFiltre.textContent = nonPointees ? "À pointer ✓" : "À pointer";
+    if (nonPointees) lignes = aPointer;
     const cats = new Map(etat.categories.map((x) => [x.id, x]));
     const nomsCat = new Map(etat.categories.map((x) => [x.id, x.nom]));
     const q = sansAccent(recherche).trim();
     if (q) lignes = lignes.filter((o) => correspond(o, q, nomsCat));
-    if (!lignes.length) { liste.replaceChildren(h("p", { class: "vide" }, q ? "Aucun résultat." : "Aucune opération. Touchez + pour en ajouter.")); return; }
+    affichees = lignes;
+    bTout.classList.toggle("cache", !(nonPointees && lignes.some((x) => x.statut === "encours")));
+    if (!lignes.length) { liste.replaceChildren(h("p", { class: "vide" }, q ? "Aucun résultat." : nonPointees ? "Aucune opération à pointer." : "Aucune opération. Touchez + pour en ajouter.")); return; }
 
     const noeuds = [];
     let mois = "";
@@ -156,18 +182,22 @@ export function monter(conteneur, { id }) {
       const m = moisFr(o.date);
       if (m !== mois) { mois = m; noeuds.push(h("h3", { class: "groupe" }, m)); }
       const cat = cats.get(o.categorieId);
-      noeuds.push(h("button", {
-        class: "ligne bouton-ligne" + (o.statut === "annule" ? " annule" : ""),
-        style: `border-left-color:${cat?.couleur || c.couleur || "transparent"}`,
-        onclick: () => formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) })
+      const pastille = o.statut === "annule"
+        ? h("span", { class: "pointer inactif", title: "Annulée" }, ICONES.annule)
+        : h("button", { type: "button", class: "pointer", "aria-label": o.statut === "pointe" ? "Dépointer" : "Pointer", title: o.statut === "pointe" ? "Pointée : toucher pour dépointer" : "En cours : toucher pour pointer", onclick: () => basculer(o) }, ICONES[o.statut]);
+      noeuds.push(h("div", {
+        class: "ligne avec-pointage" + (o.statut === "annule" ? " annule" : ""),
+        style: `border-left-color:${cat?.couleur || c.couleur || "transparent"}`
       },
-        h("div", { class: "gauche" },
-          h("strong", {}, o.nom),
-          h("small", {}, `${ICONES[o.statut] || ""} ${dateFr(o.date)}${cat ? " · " + cat.nom : ""}`)),
-        h("div", { class: "droite" },
-          h("small", {}, euros(o.solde)),
-          h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
-          h("small", {}, libelleNature(o.nature)))));
+        pastille,
+        h("button", { type: "button", class: "corps", onclick: () => formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) }) },
+          h("div", { class: "gauche" },
+            h("strong", {}, o.nom),
+            h("small", {}, `${dateFr(o.date)}${cat ? " · " + cat.nom : ""}`)),
+          h("div", { class: "droite" },
+            h("small", {}, euros(o.solde)),
+            h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
+            h("small", {}, libelleNature(o.nature))))));
     }
     if (lignes.length > limite) {
       noeuds.push(h("button", { class: "sec plus", onclick: () => { limite += PAGE; majListe(); } }, `Afficher plus (${lignes.length - limite} restantes)`));

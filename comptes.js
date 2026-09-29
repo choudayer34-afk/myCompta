@@ -64,6 +64,8 @@ export function monter(conteneur) {
   const ajout = h("button", { class: "flottant", "aria-label": "Nouveau compte", onclick: () => formCompte() }, "+");
   conteneur.replaceChildren(resume, liste, ajout);
 
+  const nbAPointer = (c) => etat.operations.filter((o) => o.compteId === c.id && o.statut === "encours").length;
+
   function ligne(c) {
     return h("a", { class: "ligne", href: `#/compte/${c.id}`, style: `border-left-color:${c.couleur || "transparent"}` },
       h("div", { class: "gauche" },
@@ -71,7 +73,7 @@ export function monter(conteneur) {
         h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1])),
       h("div", { class: "droite" },
         h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
-        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)))));
+        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : ""))));
   }
 
   function maj() {

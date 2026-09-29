@@ -70,3 +70,14 @@ dialog.modale::backdrop { background:rgba(0,0,0,.5); }
 .puces { margin:6px 0 0; padding-left:18px; list-style:disc; }
 .puces li { display:list-item; border:0; padding:2px 0; font-size:.9rem; }
 .ligne.terminee { opacity:.55; }
+
+/* Pointage rapide et filtre « à pointer » */
+.barre { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.barre .recherche { margin:0; flex:1; min-width:0; }
+.barre button { flex-shrink:0; }
+button.sec.actif-filtre { background:var(--accent); color:#fff; }
+@media (prefers-color-scheme: dark) { button.sec.actif-filtre { color:#062a26; } }
+.ligne.avec-pointage { padding:0; align-items:stretch; }
+.ligne.avec-pointage .pointer { background:none; border:0; border-radius:0; padding:0 4px 0 12px; min-width:44px; font-size:1.4rem; line-height:1; color:var(--accent); cursor:pointer; margin:0; }
+.ligne.avec-pointage .pointer.inactif { display:flex; align-items:center; color:var(--discret); cursor:default; }
+.ligne.avec-pointage .corps { flex:1; min-width:0; display:flex; justify-content:space-between; align-items:center; gap:12px; background:none; border:0; border-radius:0; color:inherit; text-align:left; padding:10px 12px 10px 4px; font:inherit; margin:0; cursor:pointer; }
