@@ -1,5 +1,5 @@
 import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele } from "./store.js";
-import { lignesAvecSolde, soldePointe } from "./calc.js";
+import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { formCompte } from "./comptes.js";
@@ -25,8 +25,10 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const iNom = h("input", { type: "text", required: true, value: src.nom || "", autocomplete: "off" });
   const iCom = h("input", { type: "text", value: src.commentaire || "" });
   const iDate = h("input", { type: "date", required: true, value: src.date || aujourdhui() });
-  const iSens = selecteur([["-1", "Dépense"], ["1", "Recette"]], src.montant > 0 ? "1" : "-1");
-  const iMontant = h("input", { type: "text", inputmode: "decimal", required: true, placeholder: "0,00", value: src.montant != null ? versSaisie(src.montant) : "" });
+  const iSens = selecteur([["-1", "Dépense"], ["1", "Recette"]], src.sens != null ? String(src.sens) : src.montant > 0 ? "1" : "-1");
+  const saisieRapide = !!modele && modele.montant == null;
+  const iMontant = h("input", { type: "text", inputmode: "decimal", required: true, autofocus: saisieRapide,
+    placeholder: modele && modele.dernierMontant != null ? "dernier : " + versSaisie(modele.dernierMontant) : "0,00", value: src.montant != null ? versSaisie(src.montant) : "" });
   const iCompte = selecteur(optComptes, src.compteId || compteId);
   const iDest = selecteur(optComptes, (comptes.find((c) => c.id !== (src.compteId || compteId)) || {}).id);
   const iNature = selecteur(NATURES, src.nature || "autre");
@@ -83,6 +85,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
     champ("Statut", iStatut), cPointage, cLie, erreur, actions
   ]);
   basculer();
+  if (saisieRapide) iMontant.focus();
 
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -138,10 +141,11 @@ export function monter(conteneur, { id }) {
     const date = aujourdhui();
     ecrireEnParallele(cibles.map((o) => ["operations", o.id, { statut: "pointe", datePointage: date }])).catch((e) => { console.error(e); alert("Échec du pointage : " + e.message); });
   } }, "Tout pointer");
+  const rapide = h("div", { class: "rapide cache" });
   const barre = h("div", { class: "barre" }, iRecherche, bFiltre, bTout);
   const liste = h("div", { class: "liste" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), barre, liste, ajout);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, barre, liste, ajout);
 
   // Pointage rapide d'une opération (en cours <-> pointé) sans ouvrir la fiche
   function basculer(o) {
@@ -163,6 +167,13 @@ export function monter(conteneur, { id }) {
     titre.textContent = c.nom;
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
     solde.textContent = `${lignes.length} opérations – En cours : ${euros(lignes.length ? lignes[0].solde : c.soldeInitial || 0)} – Pointé : ${euros(soldePointe(c, etat.operations))}`;
+    // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
+    const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
+    const modeles = habitudes(id, etat.operations, aujourdhui(), exclus);
+    rapide.classList.toggle("cache", !modeles.length);
+    rapide.replaceChildren(h("span", { class: "rapide-titre" }, "Saisie rapide"),
+      ...modeles.map((m) => h("button", { type: "button", class: "puce", title: `${m.nb} fois · dernier montant ${euros(m.dernierMontant)}`,
+        onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
     const aPointer = lignes.filter((x) => x.statut === "encours");
     if (aPointer.length) solde.textContent += ` – À pointer : ${aPointer.length} (${euros(aPointer.reduce((s, x) => s + x.montant, 0))})`;
     bFiltre.classList.toggle("actif-filtre", nonPointees);
