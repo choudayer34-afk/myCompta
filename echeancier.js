@@ -33,7 +33,7 @@ export function formPlanifiee(p = null) {
   const iProchaine = h("input", { type: "date", required: true, value: p?.prochaine || aujourdhui() });
   const iFin = h("input", { type: "date", value: p?.dateFin || "" });
   const iInfo = h("input", { type: "text", value: p?.info || "" });
-  const iExport = h("input", { type: "checkbox", checked: !!p?.aExporter });
+  const iExport = h("input", { type: "checkbox", checked: p ? !!p.aExporter : true });
   const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export (opérations créées)");
   const erreur = h("p", { class: "erreur" });
 

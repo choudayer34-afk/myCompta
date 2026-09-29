@@ -19,7 +19,7 @@ export function formTableau({ compteId }) {
   const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], "");
   const iNature = selecteur(NATURES, "autre");
   const iStatut = selecteur(STATUTS.filter((s) => s[0] !== "annule"), "encours");
-  const iExport = h("input", { type: "checkbox" });
+  const iExport = h("input", { type: "checkbox", checked: true });
   const iDoublons = h("input", { type: "checkbox", checked: true });
   const corps = h("tbody");
   const recap = h("p", { class: "note" });

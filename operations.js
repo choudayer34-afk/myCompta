@@ -33,7 +33,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const iNature = selecteur(NATURES, src.nature || "autre");
   const iInfo = h("input", { type: "text", value: src.info || "" });
   const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], src.categorieId || "");
-  const iExport = h("input", { type: "checkbox", checked: !!src.aExporter });
+  const iExport = h("input", { type: "checkbox", checked: op ? !!op.aExporter : true });
   const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export");
   const iStatut = selecteur(STATUTS, src.statut || "encours");
   const iPointage = h("input", { type: "date", value: src.datePointage || "" });
