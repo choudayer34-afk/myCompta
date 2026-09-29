@@ -11,6 +11,10 @@ export function formRapide({ compteId }) {
   const iStatut = selecteur(STATUTS.filter((s) => s[0] !== "annule"), "encours");
   const iExport = h("input", { type: "checkbox", checked: true });
   const iDoublons = h("input", { type: "checkbox", checked: true });
+  const iMeme = h("input", { type: "checkbox" });
+  const iDateCommune = h("input", { type: "text", inputmode: "decimal", placeholder: "jjmmaa ou jj.mm.aaaa", autocomplete: "off", value: aujourdhui().split("-").reverse().join("/") });
+  const cDateCommune = champ("Date commune à toutes les lignes", iDateCommune);
+  cDateCommune.hidden = true;
   const corps = h("tbody");
   const recap = h("p", { class: "note" });
   const erreur = h("p", { class: "erreur" });
@@ -24,6 +28,7 @@ export function formRapide({ compteId }) {
     const iMontant = h("input", { type: "text", inputmode: "decimal", placeholder: "-0,00", autocomplete: "off", value: montant });
     const iExp = h("input", { type: "checkbox", checked: iExport.checked, "aria-label": "À exporter" });
     const info = h("small", { class: "apercu-date" });
+    if (iMeme.checked) { iDate.value = iDateCommune.value; iDate.readOnly = true; }
     const ligne = { iDate, iTitre, iMontant, iExp, info };
     const tr = h("tr", {},
       h("td", {}, h("div", { class: "cellule" }, iDate, info)),
@@ -50,7 +55,7 @@ export function formRapide({ compteId }) {
     return ligne;
   }
 
-  const vide = (l) => !l.iDate.value.trim() && !l.iTitre.value.trim() && !l.iMontant.value.trim();
+  const vide = (l) => (iMeme.checked || !l.iDate.value.trim()) && !l.iTitre.value.trim() && !l.iMontant.value.trim();
   const cle = (compte, nom, date, m) => [compte, sansAccent(nom).trim(), date, m].join("|");
 
   function majRecap() {
@@ -82,6 +87,15 @@ export function formRapide({ compteId }) {
 
   for (let i = 0; i < 5; i++) ajouterLigne();
 
+  // Date commune : recopiée dans toutes les lignes (existantes et à venir)
+  function appliquerDateCommune() {
+    cDateCommune.hidden = !iMeme.checked;
+    for (const l of lignes) { l.iDate.readOnly = iMeme.checked; if (iMeme.checked) l.iDate.value = iDateCommune.value; }
+    majRecap();
+  }
+  iMeme.addEventListener("change", appliquerDateCommune);
+  iDateCommune.addEventListener("input", appliquerDateCommune);
+
   const bColle = h("button", { type: "button", class: "sec", onclick: () => zoneColle.classList.toggle("cache") }, "Coller un relevé");
   zoneColle.append(
     h("p", { class: "note" }, "Collez le texte copié depuis votre banque : la date, le titre et le montant (− débit, + crédit), sur une même ligne séparés par une tabulation, ou chacun sur sa ligne."),
@@ -93,6 +107,7 @@ export function formRapide({ compteId }) {
       for (const l of [...lignes]) if (vide(l)) { l.tr.remove(); lignes.splice(lignes.indexOf(l), 1); }
       for (const o of lus) ajouterLigne(o.date, o.titre, o.montant);
       ajouterLigne();
+      if (iMeme.checked) appliquerDateCommune();
       iColle.value = ""; zoneColle.classList.add("cache");
       majRecap();
     } }, "Remplir le tableau"));
@@ -100,6 +115,7 @@ export function formRapide({ compteId }) {
   const { dialogue, formulaire } = modale("Tableau rapide", [
     h("p", { class: "note" }, "Une ligne par opération. Montant : « - » pour un débit, « + » pour un crédit (sans signe : débit)."),
     champ("Compte", iCompte), champ("Statut des opérations créées", iStatut),
+    h("label", { class: "case" }, iMeme, "Même date pour toutes les lignes"), cDateCommune,
     h("label", { class: "case" }, iExport, "À exporter (coche toutes les lignes)"),
     h("table", { class: "grille rapide-grille" }, h("thead", {}, h("tr", {}, h("th", {}, "Date"), h("th", {}, "Titre"), h("th", {}, "Montant (€)"), h("th", {}, "Exp."), h("th"))), corps),
     h("div", { class: "actions" },
