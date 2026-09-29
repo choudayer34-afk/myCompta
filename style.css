@@ -94,3 +94,10 @@ button.sec.actif-filtre { background:var(--accent); color:#fff; }
 .ligne .poignee { display:flex; align-items:center; justify-content:center; min-width:48px; font-size:1.3rem; letter-spacing:-2px; color:var(--discret); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
 .ligne.glisse { box-shadow:0 4px 14px rgba(0,0,0,.35); position:relative; z-index:3; background:var(--carte); }
 .ligne.glisse .poignee { cursor:grabbing; color:var(--accent); }
+
+/* Case à cocher et export */
+.case { display:flex; align-items:center; gap:10px; margin:10px 0; font-size:1rem; color:var(--texte); }
+.case input { width:auto; height:20px; min-width:20px; margin:0; }
+.deux { display:flex; gap:10px; }
+.deux .champ { flex:1; min-width:0; }
+nav a { font-size:.85rem; }

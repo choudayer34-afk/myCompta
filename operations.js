@@ -34,6 +34,8 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const iNature = selecteur(NATURES, src.nature || "autre");
   const iInfo = h("input", { type: "text", value: src.info || "" });
   const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], src.categorieId || "");
+  const iExport = h("input", { type: "checkbox", checked: !!src.aExporter });
+  const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export");
   const iStatut = selecteur(STATUTS, src.statut || "encours");
   const iPointage = h("input", { type: "date", value: src.datePointage || "" });
   const erreur = h("p", { class: "erreur" });
@@ -82,7 +84,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const { dialogue, formulaire } = modale(op ? "Opération" : "Nouvelle opération", [
     cType, champ("Nom", iNom), champ("Commentaire", iCom), champ("Date", iDate), cSens,
     champ("Montant (€)", iMontant), cCompte, cDest, cNature, champ("Info (n° de chèque…)", iInfo), cCat,
-    champ("Statut", iStatut), cPointage, cLie, erreur, actions
+    cExport, champ("Statut", iStatut), cPointage, cLie, erreur, actions
   ]);
   basculer();
   if (saisieRapide) iMontant.focus();
@@ -94,7 +96,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
     const m = Math.abs(saisi);
     const statut = iStatut.value;
     const datePointage = statut === "pointe" ? (iPointage.value || aujourdhui()) : null;
-    const commun = { nom: iNom.value.trim(), commentaire: iCom.value.trim(), date: iDate.value, statut, datePointage, info: iInfo.value.trim() };
+    const commun = { nom: iNom.value.trim(), commentaire: iCom.value.trim(), date: iDate.value, statut, datePointage, info: iInfo.value.trim(), aExporter: iExport.checked };
     const l = lot();
 
     if (virement) {
@@ -173,7 +175,7 @@ export function monter(conteneur, { id }) {
     rapide.classList.toggle("cache", !modeles.length);
     rapide.replaceChildren(h("span", { class: "rapide-titre" }, "Saisie rapide"),
       ...modeles.map((m) => h("button", { type: "button", class: "puce", title: `${m.nb} fois · dernier montant ${euros(m.dernierMontant)}`,
-        onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
+        onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, aExporter: m.aExporter, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
     const aPointer = lignes.filter((x) => x.statut === "encours");
     if (aPointer.length) solde.textContent += ` – À pointer : ${aPointer.length} (${euros(aPointer.reduce((s, x) => s + x.montant, 0))})`;
     bFiltre.classList.toggle("actif-filtre", nonPointees);
@@ -204,7 +206,7 @@ export function monter(conteneur, { id }) {
         h("button", { type: "button", class: "corps", onclick: () => formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) }) },
           h("div", { class: "gauche" },
             h("strong", {}, o.nom),
-            h("small", {}, `${dateFr(o.date)}${cat ? " · " + cat.nom : ""}`)),
+            h("small", {}, `${dateFr(o.date)}${cat ? " · " + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}`)),
           h("div", { class: "droite" },
             h("small", {}, euros(o.solde)),
             h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),

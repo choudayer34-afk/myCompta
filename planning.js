@@ -68,7 +68,7 @@ export function ecrituresEcheances(planifiees, idsExistants, jusqua, cree) {
     for (const d of dates) {
       const idA = `e${p.id}_${d}`, idB = `f${p.id}_${d}`;
       if (idsExistants.has(idA)) continue;
-      const base = { nom: p.nom, commentaire: p.commentaire || "", date: d, statut: "encours", datePointage: null, info: p.info || "", planifieeId: p.id, cree };
+      const base = { nom: p.nom, commentaire: p.commentaire || "", date: d, statut: "encours", datePointage: null, info: p.info || "", aExporter: !!p.aExporter, planifieeId: p.id, cree };
       if (p.virementCompteId) {
         const m = -Math.abs(p.montant);
         ecritures.push(["operations", idA, { ...base, compteId: p.compteId, montant: m, nature: "virement", categorieId: null, virementId: idA }]);

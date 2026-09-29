@@ -7,6 +7,7 @@ import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
 import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
+import * as vueExport from "./export.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -47,6 +48,9 @@ function naviguer() {
   let onglet = "comptes";
   if (compte) {
     vue = vueOperations.monter(principal, { id: decodeURIComponent(compte[1]) });
+  } else if (hash === "#/export" || hash.startsWith("#/export/")) {
+    onglet = "export";
+    vue = vueExport.monter(principal, { id: decodeURIComponent(hash.slice(9)) });
   } else if (hash === "#/echeancier") {
     onglet = "echeancier";
     vue = vueEcheancier.monter(principal);

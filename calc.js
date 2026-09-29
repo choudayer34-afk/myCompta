@@ -62,6 +62,6 @@ export function habitudes(compteId, operations, aujourdhui, exclus = new Set(), 
     .slice(0, max)
     .map((g) => ({
       nom: g.derniere.nom, categorieId: g.derniere.categorieId || null, nature: g.derniere.nature || "autre",
-      info: g.derniere.info || "", sens: g.derniere.montant > 0 ? 1 : -1, dernierMontant: g.derniere.montant, nb: g.nb
+      info: g.derniere.info || "", aExporter: !!g.derniere.aExporter, sens: g.derniere.montant > 0 ? 1 : -1, dernierMontant: g.derniere.montant, nb: g.nb
     }));
 }

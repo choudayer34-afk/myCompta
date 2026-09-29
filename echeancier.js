@@ -33,6 +33,8 @@ export function formPlanifiee(p = null) {
   const iProchaine = h("input", { type: "date", required: true, value: p?.prochaine || aujourdhui() });
   const iFin = h("input", { type: "date", value: p?.dateFin || "" });
   const iInfo = h("input", { type: "text", value: p?.info || "" });
+  const iExport = h("input", { type: "checkbox", checked: !!p?.aExporter });
+  const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export (opérations créées)");
   const erreur = h("p", { class: "erreur" });
 
   const cSens = champ("Sens", iSens);
@@ -61,7 +63,7 @@ export function formPlanifiee(p = null) {
   const { dialogue, formulaire } = modale(p ? "Opération planifiée" : "Nouvelle opération planifiée", [
     champ("Type de saisie", iType), champ("Nom", iNom), champ("Commentaire", iCom), cSens,
     champ("Montant (€)", iMontant), cCompte, cDest, cNature, champ("Info", iInfo), cCat,
-    champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Date de fin (facultative)", iFin), erreur, actions
+    cExport, champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Date de fin (facultative)", iFin), erreur, actions
   ]);
   if (p) formulaire.querySelector(".champ").hidden = true;
   basculer();
@@ -75,7 +77,7 @@ export function formPlanifiee(p = null) {
     if (iFin.value && iFin.value < iProchaine.value) { erreur.textContent = "La date de fin précède la prochaine échéance."; return; }
     const m = Math.abs(saisi);
     const donnees = {
-      nom: iNom.value.trim(), commentaire: iCom.value.trim(), info: iInfo.value.trim(),
+      nom: iNom.value.trim(), commentaire: iCom.value.trim(), info: iInfo.value.trim(), aExporter: iExport.checked,
       montant: v ? -m : Number(iSens.value) * m,
       compteId: iCompte.value, virementCompteId: v ? iDest.value : null,
       nature: v ? "virement" : iNature.value, categorieId: v ? null : (iCat.value || null),
