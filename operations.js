@@ -1,4 +1,4 @@
-import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele } from "./store.js";
+import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele, comparerComptes } from "./store.js";
 import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
@@ -18,7 +18,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const virement = !!(op && op.virementId);
   const paire = virement ? etat.operations.find((o) => o.virementId === op.virementId && o.id !== op.id) : null;
   const signe = virement ? (op.montant < 0 ? -1 : 1) : 0;
-  const comptes = etat.comptes.filter((c) => !c.archive || c.id === src.compteId).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const comptes = etat.comptes.filter((c) => !c.archive || c.id === src.compteId).sort(comparerComptes);
   const optComptes = comptes.map((c) => [c.id, c.nom]);
 
   const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], "operation");

@@ -94,6 +94,13 @@ export function ecrireEnParallele(ecritures) {
   return Promise.all(promesses);
 }
 
+// Ordre des comptes : ordre choisi (glisser-déposer), puis nom pour les comptes sans ordre.
+export function comparerComptes(a, b) {
+  const oa = Number.isFinite(a.ordre) ? a.ordre : Infinity, ob = Number.isFinite(b.ordre) ? b.ordre : Infinity;
+  if (oa !== ob) return oa < ob ? -1 : 1;
+  return (a.nom || "").localeCompare(b.nom || "", "fr");
+}
+
 export function libelleCategorie(c) {
   const p = c.parentId && etat.categories.find((x) => x.id === c.parentId);
   return p ? `${p.nom} › ${c.nom}` : c.nom;

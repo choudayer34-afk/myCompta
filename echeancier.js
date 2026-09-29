@@ -1,4 +1,4 @@
-import { etat, pret, nouvelId, lot, ecrireEnParallele, serverTimestamp, categoriesTriees } from "./store.js";
+import { etat, pret, nouvelId, lot, ecrireEnParallele, serverTimestamp, categoriesTriees, comparerComptes } from "./store.js";
 import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee } from "./planning.js";
 import { euros, versCentimes, versSaisie, dateFr, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
@@ -17,7 +17,7 @@ export function genererEcheances() {
 
 export function formPlanifiee(p = null) {
   const virement = !!(p && p.virementCompteId);
-  const comptes = etat.comptes.filter((c) => !c.archive || c.id === p?.compteId).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  const comptes = etat.comptes.filter((c) => !c.archive || c.id === p?.compteId).sort(comparerComptes);
   const optComptes = comptes.map((c) => [c.id, c.nom]);
 
   const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], virement ? "virement" : "operation");
@@ -106,7 +106,7 @@ export function monter(conteneur) {
       groupes.get(p.compteId).push(p);
     }
     const noeuds = [];
-    const ordre = [...groupes.keys()].sort((a, b) => ((comptes.get(a) || {}).nom || "").localeCompare((comptes.get(b) || {}).nom || "", "fr"));
+    const ordre = [...groupes.keys()].sort((a, b) => comparerComptes(comptes.get(a) || { nom: "~" }, comptes.get(b) || { nom: "~" }));
     for (const cid of ordre) {
       noeuds.push(h("h3", { class: "groupe" }, (comptes.get(cid) || {}).nom || "Compte supprimé"));
       for (const p of groupes.get(cid).sort((a, b) => (a.prochaine || "").localeCompare(b.prochaine || ""))) {

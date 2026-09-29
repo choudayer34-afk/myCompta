@@ -86,3 +86,11 @@ button.sec.actif-filtre { background:var(--accent); color:#fff; }
 .rapide { display:flex; gap:8px; overflow-x:auto; align-items:center; padding:4px 0 10px; -webkit-overflow-scrolling:touch; }
 .rapide-titre { font-size:.8rem; color:var(--discret); flex-shrink:0; }
 .puce { flex-shrink:0; white-space:nowrap; padding:8px 14px; border-radius:999px; font-size:.9rem; background:var(--carte); color:var(--accent); border:1px solid var(--accent); }
+
+/* Liste des comptes : poignée de tri par glisser-déposer */
+.ligne.avec-poignee { padding:0; align-items:stretch; gap:0; }
+.ligne.avec-poignee .corps { flex:1; min-width:0; display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 4px 10px 12px; color:inherit; text-decoration:none; }
+.ligne.avec-poignee .gauche { min-width:0; }
+.ligne .poignee { display:flex; align-items:center; justify-content:center; min-width:48px; font-size:1.3rem; letter-spacing:-2px; color:var(--discret); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+.ligne.glisse { box-shadow:0 4px 14px rgba(0,0,0,.35); position:relative; z-index:3; background:var(--carte); }
+.ligne.glisse .poignee { cursor:grabbing; color:var(--accent); }
