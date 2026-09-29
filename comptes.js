@@ -1,5 +1,5 @@
 import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes } from "./store.js";
-import { soldeCompte, soldePointe } from "./calc.js";
+import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 
@@ -22,6 +22,8 @@ export function formCompte(compte = null) {
   const cEnCours = champ("Solde en cours (€) – opérations non pointées comprises", iEnCours);
   cEnCours.hidden = !compte;
   const iCouleur = h("input", { type: "color", value: compte?.couleur || couleurAuHasard() });
+  const iPart = h("input", { type: "text", inputmode: "decimal", value: String(compte ? partCompte(compte) : 100).replace(".", ",") });
+  const cPart = champ("Ma part du solde (%) – 50 pour un compte joint à moitié", iPart);
   const iEtat = selecteur([["actif", "Actif"], ["archive", "Archivé"]], compte?.archive ? "archive" : "actif");
   const erreur = h("p", { class: "erreur" });
 
@@ -40,18 +42,20 @@ export function formCompte(compte = null) {
 
   const { dialogue, formulaire } = modale(compte ? "Modifier le compte" : "Nouveau compte", [
     champ("Nom", iNom), champ("Type", iType), champ("Date d'ouverture", iOuv),
-    champ("Solde initial (€)", iSolde), cEnCours, champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
+    champ("Solde initial (€)", iSolde), cEnCours, champ("Couleur", iCouleur), cPart, champ("État", iEtat), erreur, actions
   ]);
 
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const solde = versCentimes(iSolde.value);
     if (solde === null) { erreur.textContent = "Solde initial invalide."; return; }
+    const part = Number(String(iPart.value).replace(/\s/g, "").replace(",", "."));
+    if (!Number.isFinite(part) || part < 0 || part > 100 || iPart.value.trim() === "") { erreur.textContent = "La part doit être comprise entre 0 et 100."; return; }
     const id = compte?.id || nouvelId("comptes");
     const l = lot();
     l.set("comptes", id, {
       nom: iNom.value.trim(), type: iType.value, dateOuverture: iOuv.value || null,
-      soldeInitial: solde, couleur: iCouleur.value, archive: iEtat.value === "archive",
+      soldeInitial: solde, couleur: iCouleur.value, archive: iEtat.value === "archive", part,
       ...(compte ? {} : { ordre: etat.comptes.reduce((m, c) => Math.max(m, Number.isFinite(c.ordre) ? c.ordre : -1), -1) + 1 })
     });
     l.envoyer();
@@ -62,8 +66,9 @@ export function formCompte(compte = null) {
 export function monter(conteneur) {
   const resume = h("div", { class: "resume" });
   const liste = h("div", { class: "liste" });
+  const totaux = h("div", { class: "carte totaux" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouveau compte", onclick: () => formCompte() }, "+");
-  conteneur.replaceChildren(resume, liste, ajout);
+  conteneur.replaceChildren(resume, liste, totaux, ajout);
 
   const nbAPointer = (c) => etat.operations.filter((o) => o.compteId === c.id && o.statut === "encours").length;
 
@@ -109,7 +114,7 @@ export function monter(conteneur) {
     const corps = h("a", { class: "corps", href: `#/compte/${c.id}` },
       h("div", { class: "gauche" },
         h("strong", {}, c.nom),
-        h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1])),
+        h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1] + (partCompte(c) < 100 ? ` · ma part ${String(partCompte(c)).replace(".", ",")} %` : ""))),
       h("div", { class: "droite" },
         h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
         h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : ""))));
@@ -123,9 +128,15 @@ export function monter(conteneur) {
     if (!pret()) { liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const actifs = etat.comptes.filter((c) => !c.archive).sort(comparerComptes);
     const archives = etat.comptes.filter((c) => c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
-    const total = actifs.reduce((s, c) => s + soldeCompte(c, etat.operations), 0);
-    const totalPointe = actifs.reduce((s, c) => s + soldePointe(c, etat.operations), 0);
-    resume.textContent = `${etat.operations.length} opérations – En cours : ${euros(total)} – Pointé : ${euros(totalPointe)}`;
+    const t = totauxComptes(etat.comptes, etat.operations);
+    resume.textContent = `${etat.operations.length} opérations`;
+    const ligneTotal = (libelle, montant, gras) => h("div", { class: "total-ligne" + (gras ? " gras" : "") }, h("span", {}, libelle), h("span", { class: "montant " + (montant < 0 ? "neg" : "pos") }, euros(montant)));
+    totaux.replaceChildren(
+      h("h3", {}, "Mon argent"),
+      ligneTotal("En cours", t.enCours, true),
+      ligneTotal("Pointé", t.pointe, true),
+      t.partiels.length ? h("p", { class: "note" }, `Comptes partagés comptés selon ma part : ${t.partiels.map((x) => `${x.nom} ${String(x.part).replace(".", ",")} %`).join(", ")}. Total des soldes complets : en cours ${euros(t.brutEnCours)}, pointé ${euros(t.brutPointe)}.`) : null);
+    totaux.classList.toggle("cache", !actifs.length);
     const noeuds = actifs.map((c) => ligne(c, true));
     if (!actifs.length && !archives.length) noeuds.push(h("p", { class: "vide" }, "Aucun compte. Touchez + pour en créer un."));
     if (archives.length) noeuds.push(h("h3", { class: "groupe" }, "Archivés"), ...archives.map((c) => ligne(c, false)));

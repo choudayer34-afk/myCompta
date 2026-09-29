@@ -65,3 +65,19 @@ export function habitudes(compteId, operations, aujourdhui, exclus = new Set(), 
       info: g.derniere.info || "", aExporter: !!g.derniere.aExporter, sens: g.derniere.montant > 0 ? 1 : -1, dernierMontant: g.derniere.montant, nb: g.nb
     }));
 }
+
+// Part de l'utilisateur dans un compte (compte joint : 50 %, etc.). Par défaut 100 %.
+export const partCompte = (c) => (Number.isFinite(c.part) ? Math.min(100, Math.max(0, c.part)) : 100);
+
+// Totaux des comptes actifs : « ma part » (comptes joints au prorata) et total brut.
+export function totauxComptes(comptes, operations) {
+  const t = { enCours: 0, pointe: 0, brutEnCours: 0, brutPointe: 0, partiels: [] };
+  for (const c of comptes) {
+    if (c.archive) continue;
+    const ec = soldeCompte(c, operations), po = soldePointe(c, operations), part = partCompte(c);
+    t.brutEnCours += ec; t.brutPointe += po;
+    t.enCours += Math.round(ec * part / 100); t.pointe += Math.round(po * part / 100);
+    if (part < 100) t.partiels.push({ nom: c.nom, part });
+  }
+  return t;
+}
