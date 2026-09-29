@@ -62,7 +62,26 @@ nav a { flex:1; text-align:center; padding:14px 0; color:var(--discret); text-de
 nav a.actif { color:var(--accent); font-weight:700; }
 
 /* Fenêtres de saisie */
-dialog.modale { width:min(560px, calc(100vw - 24px)); max-height:calc(100vh - 24px); overflow:auto; border:1px solid var(--bord); border-radius:14px; padding:16px; background:var(--carte); color:var(--texte); }
+dialog.modale { width:min(560px, calc(100vw - 24px)); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); overflow:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; border:1px solid var(--bord); border-radius:14px; padding:16px; background:var(--carte); color:var(--texte); }
+dialog.modale input, dialog.modale select, dialog.modale textarea { font-size:16px; }
+textarea { width:100%; padding:10px; font-size:1rem; border:1px solid var(--bord); border-radius:8px; background:var(--fond); color:var(--texte); font-family:inherit; min-height:90px; }
+
+/* Sélection multiple et actions de la vue compte */
+.actions-vue { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+.mode-selection { padding-bottom:70px; }
+.barre-selection { position:fixed; left:0; right:0; bottom:calc(52px + env(safe-area-inset-bottom)); z-index:8; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 12px; background:var(--carte); border-top:1px solid var(--bord); box-shadow:0 -2px 8px rgba(0,0,0,.2); }
+.barre-selection .nb { flex:1; min-width:90px; font-weight:600; }
+.ligne.choisie { box-shadow:inset 0 0 0 2px var(--accent); }
+.pointer.sel { font-size:1.4rem; color:var(--accent); }
+
+/* Saisie en tableau */
+table.grille { width:100%; border-collapse:collapse; margin:8px 0; }
+.grille th { font-size:.8rem; color:var(--discret); text-align:left; padding:2px 4px; font-weight:normal; }
+.grille td { padding:2px 4px; vertical-align:middle; }
+.grille input { padding:8px; }
+.apercu-date { font-size:.75rem; color:var(--discret); white-space:nowrap; }
+tr.invalide input { border-color:var(--neg); }
+.croix { padding:4px 8px; background:transparent; color:var(--discret); border:0; }
 dialog.modale::backdrop { background:rgba(0,0,0,.5); }
 .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 

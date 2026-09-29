@@ -3,12 +3,11 @@ import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { formCompte } from "./comptes.js";
+import { NATURES, STATUTS } from "./constantes.js";
+import { formMasse } from "./masse.js";
+import { formTableau } from "./tableau.js";
 
-export const NATURES = [
-  ["autre", "Autre"], ["carte", "Carte"], ["cheque", "Chèque"],
-  ["prelevement", "Prélèvement"], ["virement", "Virement"], ["especes", "Espèces"]
-];
-export const STATUTS = [["encours", "En cours"], ["pointe", "Pointé"], ["annule", "Annulé"]];
+export { NATURES, STATUTS };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
 const libelleNature = (n) => (NATURES.find((x) => x[0] === n) || [0, ""])[1];
 
@@ -122,10 +121,14 @@ export function formOperation({ compteId, op = null, modele = null }) {
 const PAGE = 200;
 
 export function monter(conteneur, { id }) {
+  conteneur.classList.remove("mode-selection");
   let recherche = "";
   let limite = PAGE;
   let nonPointees = false;   // filtre « à pointer » (statut en cours)
   let affichees = [];        // opérations actuellement listées (après filtres)
+  let mode = false;          // mode sélection
+  const choisies = new Set();
+  let message = "";
   const compte = () => etat.comptes.find((c) => c.id === id);
 
   const titre = h("strong", { class: "titre-vue" });
@@ -146,8 +149,27 @@ export function monter(conteneur, { id }) {
   const rapide = h("div", { class: "rapide cache" });
   const barre = h("div", { class: "barre" }, iRecherche, bFiltre, bTout);
   const liste = h("div", { class: "liste" });
+  const bSelect = h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Sélectionner");
+  const bTableau = h("button", { type: "button", class: "sec", onclick: () => compte() && formTableau({ compteId: id }) }, "Saisie en tableau");
+  const info = h("p", { class: "note" });
+  const actionsVue = h("div", { class: "actions-vue" }, bSelect, bTableau);
+  const nbSel = h("span", { class: "nb" });
+  const barreSel = h("div", { class: "barre-selection cache" }, nbSel,
+    h("button", { type: "button", class: "sec", onclick: () => { affichees.forEach((o) => choisies.add(o.id)); majListe(); } }, "Tout"),
+    h("button", { type: "button", class: "sec", onclick: () => { choisies.clear(); majListe(); } }, "Aucune"),
+    h("button", { type: "button", onclick: () => {
+      const ops = etat.operations.filter((o) => choisies.has(o.id));
+      if (!ops.length) return;
+      formMasse(ops, (nb, ignorees) => {
+        message = `${nb} opération(s) modifiée(s)` + (ignorees ? ` – ${ignorees} ignorée(s) (virements liés ou déjà dans ce compte).` : ".");
+        choisies.clear(); mode = false; majListe();
+      });
+    } }, "Modifier…"),
+    h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, barre, liste, ajout);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, actionsVue, info, barre, liste, ajout, barreSel);
+
+  function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
   // Pointage rapide d'une opération (en cours <-> pointé) sans ouvrir la fiche
   function basculer(o) {
@@ -186,6 +208,15 @@ export function monter(conteneur, { id }) {
     const q = sansAccent(recherche).trim();
     if (q) lignes = lignes.filter((o) => correspond(o, q, nomsCat));
     affichees = lignes;
+    // Ne garder que les opérations encore existantes dans la sélection
+    const existantes = new Set(etat.operations.map((o) => o.id));
+    for (const k of [...choisies]) if (!existantes.has(k)) choisies.delete(k);
+    conteneur.classList.toggle("mode-selection", mode);
+    bSelect.textContent = mode ? "Terminer" : "Sélectionner";
+    barreSel.classList.toggle("cache", !mode);
+    ajout.classList.toggle("cache", mode);
+    nbSel.textContent = `${choisies.size} sélectionnée(s)`;
+    info.textContent = message;
     bTout.classList.toggle("cache", !(nonPointees && lignes.some((x) => x.statut === "encours")));
     if (!lignes.length) { liste.replaceChildren(h("p", { class: "vide" }, q ? "Aucun résultat." : nonPointees ? "Aucune opération à pointer." : "Aucune opération. Touchez + pour en ajouter.")); return; }
 
@@ -195,15 +226,21 @@ export function monter(conteneur, { id }) {
       const m = moisFr(o.date);
       if (m !== mois) { mois = m; noeuds.push(h("h3", { class: "groupe" }, m)); }
       const cat = cats.get(o.categorieId);
-      const pastille = o.statut === "annule"
+      const choisie = choisies.has(o.id);
+      const pastille = mode
+        ? h("span", { class: "pointer sel", "aria-hidden": "true" }, choisie ? "☑" : "☐")
+        : o.statut === "annule"
         ? h("span", { class: "pointer inactif", title: "Annulée" }, ICONES.annule)
         : h("button", { type: "button", class: "pointer", "aria-label": o.statut === "pointe" ? "Dépointer" : "Pointer", title: o.statut === "pointe" ? "Pointée : toucher pour dépointer" : "En cours : toucher pour pointer", onclick: () => basculer(o) }, ICONES[o.statut]);
       noeuds.push(h("div", {
-        class: "ligne avec-pointage" + (o.statut === "annule" ? " annule" : ""),
+        class: "ligne avec-pointage" + (o.statut === "annule" ? " annule" : "") + (mode && choisie ? " choisie" : ""),
         style: `border-left-color:${cat?.couleur || c.couleur || "transparent"}`
       },
         pastille,
-        h("button", { type: "button", class: "corps", onclick: () => formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) }) },
+        h("button", { type: "button", class: "corps", onclick: () => {
+          if (mode) { if (choisies.has(o.id)) choisies.delete(o.id); else choisies.add(o.id); majListe(); return; }
+          formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) });
+        } },
           h("div", { class: "gauche" },
             h("strong", {}, o.nom),
             h("small", {}, `${dateFr(o.date)}${cat ? " · " + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}`)),

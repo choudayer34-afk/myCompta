@@ -81,3 +81,22 @@ export function totauxComptes(comptes, operations) {
   }
   return t;
 }
+
+// Modification en masse : champ ∈ categorie | export | statut | nature | compte.
+// Les virements liés ne changent ni de catégorie, ni de nature, ni de compte (ils sont comptés dans `ignorees`).
+export function modificationsMasse(operations, champ, valeur, jour) {
+  const ecritures = [];
+  let ignorees = 0;
+  for (const o of operations) {
+    let d;
+    if (champ === "export") d = { aExporter: valeur === true || valeur === "1" };
+    else if (champ === "statut") d = { statut: valeur, datePointage: valeur === "pointe" ? (o.datePointage || jour) : null };
+    else if (o.virementId) { ignorees++; continue; }
+    else if (champ === "categorie") d = { categorieId: valeur || null };
+    else if (champ === "nature") d = { nature: valeur };
+    else if (champ === "compte") { if (o.compteId === valeur) { ignorees++; continue; } d = { compteId: valeur }; }
+    else continue;
+    ecritures.push(["operations", o.id, d]);
+  }
+  return { ecritures, ignorees };
+}
