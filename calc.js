@@ -25,3 +25,15 @@ export function lignesAvecSolde(compte, operations) {
     return { ...o, solde: s };
   });
 }
+
+// Solde « pointé » : solde initial + opérations pointées uniquement.
+export function soldePointe(compte, operations) {
+  let s = compte.soldeInitial || 0;
+  for (const o of operations) if (o.compteId === compte.id && o.statut === "pointe") s += o.montant;
+  return s;
+}
+
+// Solde initial à enregistrer pour que le solde « en cours » du compte soit égal à `cibleEnCours`.
+export function recalerSoldeInitial(compte, operations, cibleEnCours) {
+  return cibleEnCours - (soldeCompte(compte, operations) - (compte.soldeInitial || 0));
+}

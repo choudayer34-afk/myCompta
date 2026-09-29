@@ -1,5 +1,5 @@
 import { etat, pret, nouvelId, lot } from "./store.js";
-import { soldeCompte } from "./calc.js";
+import { soldeCompte, soldePointe } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 
@@ -12,7 +12,15 @@ export function formCompte(compte = null) {
   const iNom = h("input", { type: "text", required: true, value: compte?.nom || "", autocomplete: "off" });
   const iType = selecteur(TYPES_COMPTE, compte?.type || "courant");
   const iOuv = h("input", { type: "date", value: compte?.dateOuverture || aujourdhui() });
-  const iSolde = h("input", { type: "text", inputmode: "decimal", value: compte ? (compte.soldeInitial < 0 ? "-" : "") + versSaisie(compte.soldeInitial || 0) : "0,00" });
+  const saisie = (c) => (c < 0 ? "-" : "") + versSaisie(c);
+  // Somme des opérations du compte (hors annulées) : lie le solde initial et le solde en cours
+  const somme = compte ? soldeCompte(compte, etat.operations) - (compte.soldeInitial || 0) : 0;
+  const iSolde = h("input", { type: "text", inputmode: "decimal", value: compte ? saisie(compte.soldeInitial || 0) : "0,00" });
+  const iEnCours = h("input", { type: "text", inputmode: "decimal", value: compte ? saisie((compte.soldeInitial || 0) + somme) : "" });
+  iSolde.addEventListener("input", () => { const v = versCentimes(iSolde.value); if (v !== null) iEnCours.value = saisie(v + somme); });
+  iEnCours.addEventListener("input", () => { const v = versCentimes(iEnCours.value); if (v !== null) iSolde.value = saisie(v - somme); });
+  const cEnCours = champ("Solde en cours (€) – opérations non pointées comprises", iEnCours);
+  cEnCours.hidden = !compte;
   const iCouleur = h("input", { type: "color", value: compte?.couleur || couleurAuHasard() });
   const iEtat = selecteur([["actif", "Actif"], ["archive", "Archivé"]], compte?.archive ? "archive" : "actif");
   const erreur = h("p", { class: "erreur" });
@@ -32,7 +40,7 @@ export function formCompte(compte = null) {
 
   const { dialogue, formulaire } = modale(compte ? "Modifier le compte" : "Nouveau compte", [
     champ("Nom", iNom), champ("Type", iType), champ("Date d'ouverture", iOuv),
-    champ("Solde initial (€)", iSolde), champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
+    champ("Solde initial (€)", iSolde), cEnCours, champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
   ]);
 
   formulaire.addEventListener("submit", (e) => {
@@ -62,7 +70,8 @@ export function monter(conteneur) {
         h("strong", {}, c.nom),
         h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1])),
       h("div", { class: "droite" },
-        h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations)))));
+        h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
+        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)))));
   }
 
   function maj() {
@@ -70,7 +79,8 @@ export function monter(conteneur) {
     const actifs = etat.comptes.filter((c) => !c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     const archives = etat.comptes.filter((c) => c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     const total = actifs.reduce((s, c) => s + soldeCompte(c, etat.operations), 0);
-    resume.textContent = `${etat.operations.length} opérations – Solde : ${euros(total)}`;
+    const totalPointe = actifs.reduce((s, c) => s + soldePointe(c, etat.operations), 0);
+    resume.textContent = `${etat.operations.length} opérations – En cours : ${euros(total)} – Pointé : ${euros(totalPointe)}`;
     const noeuds = actifs.map(ligne);
     if (!actifs.length && !archives.length) noeuds.push(h("p", { class: "vide" }, "Aucun compte. Touchez + pour en créer un."));
     if (archives.length) noeuds.push(h("h3", { class: "groupe" }, "Archivés"), ...archives.map(ligne));

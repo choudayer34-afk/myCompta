@@ -1,5 +1,5 @@
 import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees } from "./store.js";
-import { lignesAvecSolde } from "./calc.js";
+import { lignesAvecSolde, soldePointe } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { formCompte } from "./comptes.js";
@@ -143,7 +143,7 @@ export function monter(conteneur, { id }) {
     if (!c) { titre.textContent = "Introuvable"; liste.replaceChildren(h("p", { class: "vide" }, "Ce compte n'existe pas.")); return; }
     titre.textContent = c.nom;
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
-    solde.textContent = `${lignes.length} opérations – Solde : ${euros(lignes.length ? lignes[0].solde : c.soldeInitial || 0)}`;
+    solde.textContent = `${lignes.length} opérations – En cours : ${euros(lignes.length ? lignes[0].solde : c.soldeInitial || 0)} – Pointé : ${euros(soldePointe(c, etat.operations))}`;
     const cats = new Map(etat.categories.map((x) => [x.id, x]));
     const nomsCat = new Map(etat.categories.map((x) => [x.id, x.nom]));
     const q = sansAccent(recherche).trim();

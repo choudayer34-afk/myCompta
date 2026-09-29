@@ -1,5 +1,6 @@
-import { etat, ecrireParLots } from "./store.js";
-import { euros } from "./format.js";
+import { etat, ecrireParLots, lot } from "./store.js";
+import { soldeCompte, soldePointe, recalerSoldeInitial } from "./calc.js";
+import { euros, versCentimes } from "./format.js";
 import { h, selecteur, champ } from "./ui.js";
 import { decoder, parseCsv, lire, detecterFormat, analyser, statutDepuis } from "./importcsv.js";
 
@@ -9,6 +10,7 @@ export function monter(conteneur) {
   let lignes = null;
   let plan = null;
   let detection = null;
+  let rafraichir = [];
 
   const zone = h("div");
   const iFichier = h("input", { type: "file", accept: ".csv,text/csv,text/plain" });
@@ -31,6 +33,29 @@ export function monter(conteneur) {
 
   function liste(titre, elements) {
     return h("div", { class: "champ" }, h("strong", {}, titre), h("ul", { class: "puces" }, elements.map((e) => h("li", {}, e))));
+  }
+
+  // Recalage : règle le solde initial pour que le solde « en cours » corresponde à celui d'iCompta
+  function blocRecalage(c) {
+    const compte = () => etat.comptes.find((x) => x.id === c.id);
+    const etatTxt = h("small", {});
+    const iCible = h("input", { type: "text", inputmode: "decimal", placeholder: "Solde en cours dans iCompta (€)" });
+    const maj = () => {
+      const k = compte();
+      etatTxt.textContent = k ? `Actuellement – en cours : ${euros(soldeCompte(k, etat.operations))} – pointé : ${euros(soldePointe(k, etat.operations))} (solde initial : ${euros(k.soldeInitial || 0)})` : "";
+    };
+    rafraichir.push(maj);
+    maj();
+    const bouton = h("button", { type: "button", class: "sec", onclick: async () => {
+      const k = compte();
+      const cible = versCentimes(iCible.value);
+      if (!k || cible === null) { alert("Montant invalide."); return; }
+      const l = lot();
+      l.set("comptes", k.id, { soldeInitial: recalerSoldeInitial(k, etat.operations, cible) });
+      await l.envoyer();
+      maj();
+    } }, "Recaler");
+    return h("div", { class: "champ" }, h("strong", {}, c.nom), iCible, bouton, h("br"), etatTxt);
   }
 
   function afficher() {
@@ -116,8 +141,8 @@ export function monter(conteneur) {
       const resultat = h("div", { class: "carte" },
         h("h2", {}, "Import terminé"),
         h("p", {}, `${plan.nbOps} opérations enregistrées.`),
-        liste("Soldes des opérations importées (à comparer à iCompta, puis ajuster le solde initial de chaque compte si besoin)",
-          plan.comptes.map((c) => `${c.nom} : ${euros(c.solde)}`)),
+        h("p", {}, "Recalage des soldes : saisissez, pour chaque compte, le solde « en cours » affiché par iCompta. Le solde initial est calculé pour que l'application affiche le même montant. Le solde pointé doit alors correspondre aussi ; sinon, des statuts diffèrent."),
+        ...(rafraichir = [], plan.comptes.map(blocRecalage)),
         h("a", { href: "#/comptes" }, "Voir les comptes"));
       zone.replaceChildren(resultat);
       bouton.classList.add("cache");
@@ -130,5 +155,5 @@ export function monter(conteneur) {
     }
   });
 
-  return { maj() {} };
+  return { maj() { rafraichir.forEach((f) => f()); } };
 }
