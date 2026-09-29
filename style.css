@@ -1,21 +1,67 @@
-:root { --fond:#f5f7f6; --carte:#fff; --texte:#1c2523; --discret:#5b6b67; --accent:#0f766e; --alerte:#b45309; --bord:#d9e1de; }
+:root {
+  --fond:#f5f7f6; --carte:#fff; --texte:#1c2523; --discret:#5b6b67; --accent:#0f766e;
+  --alerte:#b45309; --bord:#d9e1de; --pos:#15803d; --neg:#dc2626; --danger:#b91c1c;
+}
 @media (prefers-color-scheme: dark) {
-  :root { --fond:#101514; --carte:#182120; --texte:#e6ecea; --discret:#93a39f; --accent:#2dd4bf; --alerte:#fbbf24; --bord:#2a3735; }
+  :root {
+    --fond:#101514; --carte:#182120; --texte:#e6ecea; --discret:#93a39f; --accent:#2dd4bf;
+    --alerte:#fbbf24; --bord:#2a3735; --pos:#4ade80; --neg:#f87171; --danger:#f87171;
+  }
 }
 * { box-sizing:border-box; }
-body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--fond); color:var(--texte); }
-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--accent); color:#fff; }
+[hidden] { display:none !important; }
+body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--fond); color:var(--texte); padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
+header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); background:var(--accent); color:#fff; position:sticky; top:0; z-index:5; }
+@media (prefers-color-scheme: dark) { header { color:#062a26; } }
 header h1 { font-size:1.1rem; margin:0; }
-main { max-width:560px; margin:0 auto; padding:16px; }
+main { max-width:640px; margin:0 auto; padding:12px 16px; }
+h2 { margin:0 0 8px; font-size:1.15rem; }
 .carte { background:var(--carte); border:1px solid var(--bord); border-radius:12px; padding:16px; margin-bottom:16px; }
-label { display:block; font-size:.85rem; color:var(--discret); margin:12px 0 4px; }
-input { width:100%; padding:10px; font-size:1rem; border:1px solid var(--bord); border-radius:8px; background:var(--fond); color:var(--texte); }
-button { padding:10px 16px; font-size:1rem; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; margin-top:12px; }
-button.sec { background:transparent; color:#fff; border:1px solid #fff; margin:0; padding:6px 10px; font-size:.85rem; }
-.etat { font-size:.85rem; }
-.hors { color:var(--alerte); font-weight:600; }
-.erreur { color:#dc2626; font-size:.9rem; min-height:1.2em; }
-ul { list-style:none; padding:0; margin:12px 0 0; }
-li { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bord); font-size:.95rem; }
-li small { color:var(--alerte); }
-.cache { display:none; }
+.champ { margin-bottom:10px; }
+.champ label, label { display:block; font-size:.85rem; color:var(--discret); margin:0 0 4px; }
+input, select { width:100%; padding:10px; font-size:1rem; border:1px solid var(--bord); border-radius:8px; background:var(--fond); color:var(--texte); font-family:inherit; }
+input[type=color] { padding:2px; height:42px; }
+button { padding:10px 16px; font-size:1rem; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit; }
+@media (prefers-color-scheme: dark) { button { color:#062a26; } }
+button.sec { background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 12px; font-size:.9rem; }
+header button.sec { color:inherit; border-color:currentColor; }
+button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+.etat { font-size:.85rem; margin-right:8px; }
+.hors { font-weight:700; }
+.erreur { color:var(--neg); font-size:.9rem; min-height:1.2em; margin:4px 0; }
+.note { font-size:.85rem; color:var(--discret); }
+.cache { display:none !important; }
+
+/* Vues */
+.resume { text-align:center; font-size:.9rem; color:var(--discret); padding:8px 0; }
+.entete-vue { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; }
+.entete-vue .retour { color:var(--accent); text-decoration:none; font-size:1rem; }
+.titre-vue { flex:1; text-align:center; font-size:1.05rem; }
+.recherche { margin-bottom:8px; }
+.groupe { margin:16px 0 4px; font-size:.85rem; text-transform:capitalize; color:var(--discret); }
+.liste { display:flex; flex-direction:column; }
+.ligne { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; text-align:left; text-decoration:none; color:inherit;
+  background:var(--carte); border:0; border-left:6px solid transparent; border-bottom:1px solid var(--bord); border-radius:0; padding:10px 12px; font-size:1rem; }
+.ligne:first-child { border-top-left-radius:8px; border-top-right-radius:8px; }
+.ligne.enfant { padding-left:28px; }
+.ligne .gauche, .ligne .droite { display:flex; flex-direction:column; min-width:0; }
+.ligne .gauche strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ligne .droite { text-align:right; align-items:flex-end; flex-shrink:0; }
+.ligne small { color:var(--discret); font-size:.8rem; }
+.montant { font-weight:600; font-variant-numeric:tabular-nums; }
+.montant.pos { color:var(--pos); }
+.montant.neg { color:var(--neg); }
+.ligne.annule strong, .ligne.annule .montant { text-decoration:line-through; opacity:.55; }
+.vide { text-align:center; color:var(--discret); padding:32px 0; }
+.plus { margin:12px auto; display:block; }
+
+/* Boutons et navigation */
+.flottant { position:fixed; right:20px; bottom:calc(76px + env(safe-area-inset-bottom)); width:56px; height:56px; border-radius:50%; font-size:2rem; line-height:1; padding:0; box-shadow:0 2px 8px rgba(0,0,0,.3); z-index:6; }
+nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--carte); border-top:1px solid var(--bord); padding-bottom:env(safe-area-inset-bottom); z-index:7; }
+nav a { flex:1; text-align:center; padding:14px 0; color:var(--discret); text-decoration:none; font-size:.95rem; }
+nav a.actif { color:var(--accent); font-weight:700; }
+
+/* Fenêtres de saisie */
+dialog.modale { width:min(560px, calc(100vw - 24px)); max-height:calc(100vh - 24px); overflow:auto; border:1px solid var(--bord); border-radius:14px; padding:16px; background:var(--carte); color:var(--texte); }
+dialog.modale::backdrop { background:rgba(0,0,0,.5); }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }

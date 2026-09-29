@@ -1,10 +1,18 @@
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
   "./style.css",
   "./app.js",
+  "./firebase.js",
   "./firebase-config.js",
+  "./store.js",
+  "./calc.js",
+  "./format.js",
+  "./ui.js",
+  "./comptes.js",
+  "./operations.js",
+  "./categories.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
@@ -69,18 +77,17 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Fichiers de l'application : cache immédiat puis mise à jour en arrière-plan
+  // Fichiers de l'application : réseau d'abord (pour toujours avoir la dernière version), sinon cache
   e.respondWith(
-    caches.match(req).then((cache) => {
-      const reseau = fetch(req).then(async (rep) => {
+    fetch(req)
+      .then(async (rep) => {
         const nette = await propre(rep);
         if (nette.ok) {
           const copie = nette.clone();
           caches.open(CACHE).then((c) => c.put(req, copie));
         }
         return nette;
-      }).catch(() => cache);
-      return cache || reseau;
-    })
+      })
+      .catch(() => caches.match(req))
   );
 });

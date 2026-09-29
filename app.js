@@ -1,18 +1,10 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, addDoc, query, orderBy, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-// Données conservées sur l'appareil : l'application fonctionne sans réseau
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+import { auth } from "./firebase.js";
+import { demarrer, arreter, abonner } from "./store.js";
+import * as vueComptes from "./comptes.js";
+import * as vueOperations from "./operations.js";
+import * as vueCategories from "./categories.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,41 +36,39 @@ $("form-connexion").addEventListener("submit", async (e) => {
 });
 $("btn-sortie").addEventListener("click", () => signOut(auth));
 
-let arret = null;
+// Navigation par adresse (#/comptes, #/compte/ID, #/categories)
+let vue = null;
+function naviguer() {
+  const principal = $("principal");
+  const hash = location.hash || "#/comptes";
+  const compte = hash.match(/^#\/compte\/(.+)$/);
+  let onglet = "comptes";
+  if (compte) {
+    vue = vueOperations.monter(principal, { id: decodeURIComponent(compte[1]) });
+  } else if (hash === "#/categories") {
+    onglet = "categories";
+    vue = vueCategories.monter(principal);
+  } else {
+    vue = vueComptes.monter(principal);
+  }
+  document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("actif", a.dataset.onglet === onglet));
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", () => { if (auth.currentUser) naviguer(); });
+abonner(() => vue && vue.maj && vue.maj());
 
 onAuthStateChanged(auth, (user) => {
   const connecte = !!user;
   $("ecran-connexion").classList.toggle("cache", connecte);
   $("ecran-app").classList.toggle("cache", !connecte);
   $("btn-sortie").classList.toggle("cache", !connecte);
-  if (arret) { arret(); arret = null; }
-  if (!user) return;
-
-  const col = collection(db, "users", user.uid, "tests");
-  const q = query(col, orderBy("cree", "desc"));
-  arret = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
-    const ul = $("liste");
-    ul.innerHTML = "";
-    snap.forEach((d) => {
-      const li = document.createElement("li");
-      const nom = document.createElement("span");
-      nom.textContent = d.data().libelle;
-      li.appendChild(nom);
-      if (d.metadata.hasPendingWrites) {
-        const s = document.createElement("small");
-        s.textContent = "en attente de synchronisation";
-        li.appendChild(s);
-      }
-      ul.appendChild(li);
-    });
-  });
-
-  $("form-test").onsubmit = (e) => {
-    e.preventDefault();
-    const libelle = $("libelle").value.trim();
-    if (!libelle) return;
-    // Pas d'attente de la réponse du serveur : l'écriture est locale puis synchronisée
-    addDoc(col, { libelle, cree: serverTimestamp() }).catch(console.error);
-    $("libelle").value = "";
-  };
+  $("nav").classList.toggle("cache", !connecte);
+  if (user) {
+    demarrer(user.uid);
+    naviguer();
+  } else {
+    arreter();
+    vue = null;
+    $("principal").replaceChildren();
+  }
 });
