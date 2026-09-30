@@ -4,6 +4,10 @@ import { STATUTS } from "./constantes.js";
 import { euros, aujourdhui, dateFr, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { analyserDate, analyserReleve, montantSigne } from "./saisie.js";
+import { associationPour } from "./noms.js";
+
+// Catégorie associée à ce nom (si l'association existe et que la catégorie existe encore)
+const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId) ? a.categorieId : null; };
 
 export function formRapide({ compteId }) {
   const comptes = etat.comptes.filter((c) => !c.archive || c.id === compteId).sort(comparerComptes);
@@ -139,7 +143,7 @@ export function formRapide({ compteId }) {
     const jour = aujourdhui(), statut = iStatut.value;
     const ecritures = aEcrire.map((v) => ["operations", nouvelId("operations"), {
       nom: v.titre, commentaire: "", date: v.date, montant: v.montant, compteId: iCompte.value, nature: "autre", info: "",
-      categorieId: null, statut, datePointage: statut === "pointe" ? jour : null,
+      categorieId: categorieDe(v.titre), statut, datePointage: statut === "pointe" ? jour : null,
       aExporter: v.aExporter, virementId: null, cree: serverTimestamp()
     }]);
     ecrireEnParallele(ecritures).catch((err) => { console.error(err); alert("Échec de l'enregistrement : " + err.message); });

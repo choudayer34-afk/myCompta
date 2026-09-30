@@ -1,3 +1,5 @@
+import { filtrerContient, normaliser } from "./noms.js";
+
 // Petits outils pour construire l'interface sans risque d'injection (tout passe par textContent).
 export function h(tag, attrs = {}, ...enfants) {
   const e = document.createElement(tag);
@@ -28,7 +30,84 @@ export function champ(libelle, controle) {
   return h("div", { class: "champ" }, h("label", {}, libelle), controle);
 }
 
-// Fenêtre de saisie ; retourne { dialogue, formulaire }
+// Champ de saisie avec liste filtrée « contient ».
+//  - elements() : [{ id, libelle }] (relu à chaque affichage)
+//  - ajout : texte du bouton d'ajout (ex. « Ajouter la catégorie ») ; si absent, la saisie libre est la valeur (noms d'opérations)
+// Retourne { element, input, texte(), id(), definir(id), definirTexte(t), resoudre(), surChangement(f) }
+export function combo({ elements, valeur = "", texte = "", ajout = null, placeholder = "", requis = false, alpha = false }) {
+  let idChoisi = valeur || null;
+  const trouve = (id) => elements().find((e) => e.id === id);
+  const input = h("input", { type: "text", autocomplete: "off", autocapitalize: "sentences", placeholder, required: requis || null,
+    value: texte || (valeur && trouve(valeur) ? trouve(valeur).libelle : ""), role: "combobox", "aria-autocomplete": "list" });
+  const liste = h("div", { class: "choix-liste cache", role: "listbox" });
+  const indice = h("small", { class: "indice cache" });
+  const element = h("div", { class: "combo" }, input, liste, indice);
+  const ecouteurs = [];
+  const prevenir = () => ecouteurs.forEach((f) => f());
+
+  // Résolution du texte saisi : identifiant existant, nouvel élément à créer, ou vide
+  function resoudre() {
+    const t = input.value.trim();
+    if (!ajout) return { texte: t };
+    if (idChoisi && trouve(idChoisi) && normaliser(trouve(idChoisi).libelle) === normaliser(t)) return { id: idChoisi };
+    if (!t) return { vide: true };
+    const exact = elements().find((e) => normaliser(e.libelle) === normaliser(t) || normaliser(e.libelle.split("›").pop()) === normaliser(t) && elements().filter((x) => normaliser(x.libelle.split("›").pop()) === normaliser(t)).length === 1);
+    if (exact) return { id: exact.id };
+    return { nouveau: t };
+  }
+
+  function maj() {
+    const r = resoudre();
+    indice.textContent = r.nouveau ? `Nouvelle catégorie « ${r.nouveau} » : elle sera créée à l'enregistrement.` : "";
+    indice.classList.toggle("cache", !r.nouveau);
+  }
+
+  function choisir(e) {
+    idChoisi = e.id;
+    input.value = e.libelle;
+    liste.classList.add("cache");
+    maj();
+    prevenir();
+  }
+
+  function afficher() {
+    const q = input.value;
+    const tous = elements();
+    const filtres = filtrerContient(tous, q, (x) => x.libelle, 40, alpha);
+    const noeuds = filtres.map((e) => h("button", { type: "button", class: "choix", role: "option",
+      onmousedown: (ev) => ev.preventDefault(), onclick: () => choisir(e) }, e.affichage || e.libelle));
+    const r = resoudre();
+    if (ajout && r.nouveau) noeuds.push(h("button", { type: "button", class: "choix choix-ajout", onmousedown: (ev) => ev.preventDefault(),
+      onclick: () => { liste.classList.add("cache"); maj(); prevenir(); } }, `+ ${ajout} « ${r.nouveau} »`));
+    liste.replaceChildren(...noeuds);
+    liste.classList.toggle("cache", !noeuds.length);
+  }
+
+  input.addEventListener("input", () => {
+    if (ajout) { const c = idChoisi && trouve(idChoisi); if (!c || normaliser(c.libelle) !== normaliser(input.value)) idChoisi = null; }
+    afficher(); maj(); prevenir();
+  });
+  input.addEventListener("focus", afficher);
+  input.addEventListener("blur", () => setTimeout(() => liste.classList.add("cache"), 200));
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") liste.classList.add("cache");
+    if (ev.key === "Enter" && !liste.classList.contains("cache")) {
+      const premier = liste.querySelector(".choix");
+      if (premier) { ev.preventDefault(); premier.click(); }
+    }
+  });
+  maj();
+
+  return {
+    element, input, resoudre,
+    texte: () => input.value.trim(),
+    id: () => idChoisi,
+    definir(id) { idChoisi = id || null; const e = id && trouve(id); input.value = e ? e.libelle : ""; maj(); prevenir(); },
+    definirTexte(t) { input.value = t; if (ajout) idChoisi = null; maj(); },
+    surChangement(f) { ecouteurs.push(f); }
+  };
+}
+
 // Blocage du défilement de la page derrière une fenêtre (nécessaire sur iPhone :
 // sans cela, le doigt fait défiler la page située derrière la fenêtre).
 let verrous = 0, decalage = 0;
@@ -74,6 +153,13 @@ export function modale(titre, corps) {
   let departY = 0;
   dialogue.addEventListener("touchstart", (e) => { departY = e.touches[0].clientY; }, { passive: true });
   dialogue.addEventListener("touchmove", (e) => {
+    // Une liste de choix défilable à l'intérieur de la fenêtre garde son propre défilement
+    const interne = e.target.closest && e.target.closest(".choix-liste");
+    if (interne && interne.scrollHeight > interne.clientHeight + 1) {
+      const d = e.touches[0].clientY - departY;
+      const haut = interne.scrollTop <= 0, bas = interne.scrollTop + interne.clientHeight >= interne.scrollHeight - 1;
+      if (!((haut && d > 0) || (bas && d < 0))) return;
+    }
     const defilable = dialogue.scrollHeight > dialogue.clientHeight + 1;
     if (!defilable) { e.preventDefault(); return; }
     const dy = e.touches[0].clientY - departY;

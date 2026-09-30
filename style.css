@@ -134,3 +134,34 @@ nav a { font-size:.85rem; }
 .rapide-grille th:nth-child(1) { width:26%; } .rapide-grille th:nth-child(3) { width:24%; } .rapide-grille th:nth-child(4), .rapide-grille th:nth-child(5) { width:9%; }
 .rapide-grille input[type=text] { padding:8px 6px; min-width:0; }
 tr.doublon input[type=text] { border-color:var(--alerte); }
+
+/* Champ avec liste « contient » */
+.combo { position:relative; }
+.choix-liste { max-height:200px; overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--bord); border-radius:8px; margin-top:4px; background:var(--carte); -webkit-overflow-scrolling:touch; }
+.choix { display:block; width:100%; text-align:left; background:transparent; color:var(--texte); border:0; border-bottom:1px solid var(--bord); border-radius:0; padding:10px 12px; font-size:1rem; }
+.choix:last-child { border-bottom:0; }
+.choix-ajout { color:var(--accent); font-weight:600; }
+.indice { display:block; margin-top:4px; color:var(--alerte); }
+
+/* Formulaire d'opération */
+.ligne-montant { display:flex; align-items:center; gap:10px; }
+.gros-montant { font-size:1.5rem !important; font-weight:600; padding:10px 12px; }
+.sens-texte { font-weight:600; }
+.sens { flex-shrink:0; width:48px; height:48px; padding:0; border-radius:50%; font-size:1.7rem; line-height:1; font-weight:700;
+  background:rgba(220,38,38,.12); color:var(--neg); border:2px solid var(--neg); box-shadow:0 1px 3px rgba(0,0,0,.25); cursor:pointer; }
+.sens.recette { background:rgba(21,128,61,.12); color:var(--pos); border-color:var(--pos); }
+.sens:active { transform:scale(.94); }
+.puces-cat { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+.puces-cat:empty { display:none; }
+.puce-cat { padding:8px 12px; border-radius:999px; font-size:.95rem; background:var(--carte); color:var(--accent); border:1px solid var(--accent); }
+.puce-cat.actif { background:var(--accent); color:#fff; }
+@media (prefers-color-scheme: dark) { .puce-cat.actif { color:#062a26; } }
+.statut-groupe { display:flex; gap:8px; }
+.statut-choix { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; background:var(--fond); color:var(--discret); border:1px solid var(--bord); }
+.statut-choix .ico { font-size:1.4rem; line-height:1; }
+.statut-choix small { font-size:.75rem; }
+.statut-choix.actif { border-color:var(--accent); color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); background:var(--carte); font-weight:600; }
+.zone-freq { margin-top:8px; padding:8px 10px; border-left:3px solid var(--accent); }
+details.plus { margin:10px 0; }
+details.plus summary { cursor:pointer; color:var(--accent); padding:6px 0; }
+.champ label.case { display:flex; align-items:center; gap:10px; font-size:.95rem; color:var(--texte); margin:10px 0 0; }

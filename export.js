@@ -18,7 +18,10 @@ export function monter(conteneur, { id } = {}) {
   const iMarquees = h("input", { type: "checkbox", checked: true });
   const iSansEsp = h("input", { type: "checkbox" });
   const iEntete = h("input", { type: "checkbox" });
+  const iColonnes = selecteur([["5", "5 colonnes : Date, Catégorie, Opération, Montant inversé, Montant"], ["2", "2 colonnes : Titre, Montant"]], "5");
+  const cEntete = h("label", { class: "case" }, iEntete, "Ajouter une ligne d'en-tête (Titre, Montant)");
   const iFormat = selecteur([["texte", "Texte avec virgule (12,50)"], ["nombre", "Nombre (calculable)"]], "texte");
+  const cFormat = champ("Format du montant (2 colonnes)", iFormat);
   const apercu = h("div");
   const boutons = h("div", { class: "actions" });
 
@@ -28,7 +31,8 @@ export function monter(conteneur, { id } = {}) {
   conteneur.replaceChildren(
     h("div", { class: "carte" },
       h("h2", {}, "Export Excel"),
-      h("p", { class: "note" }, "Fichier .xlsx à deux colonnes : titre et montant. Le statut des opérations n'est pas pris en compte."),
+      h("p", { class: "note" }, "Le statut des opérations n'est pas pris en compte. Les montants sont des nombres à deux décimales (affichés avec la virgule par Excel en français)."),
+      champ("Format du fichier", iColonnes),
       champ("Compte", iCompte),
       h("div", { class: "deux" }, champ("Du", iDu), champ("Au", iAu)),
       h("div", { class: "actions" },
@@ -36,8 +40,8 @@ export function monter(conteneur, { id } = {}) {
         h("button", { type: "button", class: "sec", onclick: () => preset(precedent[0], precedent[1]) }, "Mois précédent")),
       h("label", { class: "case" }, iMarquees, "Seulement les opérations « à exporter »"),
       h("label", { class: "case" }, iSansEsp, "Supprimer aussi les espaces dans les titres"),
-      h("label", { class: "case" }, iEntete, "Ajouter une ligne d'en-tête (Titre, Montant)"),
-      champ("Format du montant", iFormat)),
+      cEntete,
+      cFormat),
     apercu, boutons);
 
   function reconstruireComptes() {
@@ -49,8 +53,8 @@ export function monter(conteneur, { id } = {}) {
 
   function courant() {
     const ops = selectionner(etat.operations, { compteId: iCompte.value, du: iDu.value, au: iAu.value, seulementMarquees: iMarquees.checked });
-    const lignes = lignesExport(ops, { sansEspaces: iSansEsp.checked });
-    const options = { montantEnTexte: iFormat.value === "texte", entete: iEntete.checked };
+    const lignes = lignesExport(ops, { sansEspaces: iSansEsp.checked, categories: etat.categories });
+    const options = { montantEnTexte: iFormat.value === "texte", entete: iEntete.checked, colonnes: Number(iColonnes.value) };
     const compte = etat.comptes.find((c) => c.id === iCompte.value);
     const nom = `export_${compte ? slug(compte.nom) : "tous-les-comptes"}_${iDu.value}_${iAu.value}.xlsx`;
     return { ops, lignes, options, nom };
@@ -72,6 +76,7 @@ export function monter(conteneur, { id } = {}) {
   }
 
   function maj() {
+    cEntete.hidden = cFormat.hidden = iColonnes.value === "5";
     if (!pret()) { apercu.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     if (!iCompte.options.length) reconstruireComptes();
     if (!iDu.value || !iAu.value) { apercu.replaceChildren(h("p", { class: "note" }, "Choisissez les deux dates.")); boutons.replaceChildren(); return; }
@@ -82,7 +87,9 @@ export function monter(conteneur, { id } = {}) {
     apercu.replaceChildren(h("div", { class: "carte" },
       h("p", {}, h("strong", {}, `${ops.length} opération(s)`), ` du ${dateFr(iDu.value)} au ${dateFr(iAu.value)} – total ${euros(total)}.`),
       annulees ? h("p", { class: "note" }, `Dont ${annulees} annulée(s), incluse(s) car le statut n'est pas pris en compte.`) : null,
-      ops.length ? h("ul", { class: "puces" }, lignes.slice(0, 10).map((l) => h("li", {}, `${l.titre} ; ${options.montantEnTexte ? montantTexte(l.montant) : l.montant / 100}`))) : h("p", { class: "note" }, "Aucune opération pour ces critères. Cochez « Inclure dans l'export » dans les opérations concernées, ou décochez l'option ci-dessus."),
+      ops.length ? h("ul", { class: "puces" }, lignes.slice(0, 10).map((l) => h("li", {}, options.colonnes === 5
+          ? `${l.date} ; ${l.categorie || "—"} ; ${l.titre} ; ${montantTexte(-l.montant)} ; ${montantTexte(l.montant)}`
+          : `${l.titre} ; ${options.montantEnTexte ? montantTexte(l.montant) : l.montant / 100}`))) : h("p", { class: "note" }, "Aucune opération pour ces critères. Cochez « Inclure dans l'export » dans les opérations concernées, ou décochez l'option ci-dessus."),
       ops.length > 10 ? h("p", { class: "note" }, `… et ${ops.length - 10} autre(s).`) : null));
     boutons.replaceChildren(
       h("button", { type: "button", disabled: ops.length ? null : true, onclick: telecharger }, "Télécharger le fichier Excel"),
@@ -90,7 +97,7 @@ export function monter(conteneur, { id } = {}) {
         ? h("button", { type: "button", class: "sec", disabled: ops.length ? null : true, onclick: partager }, "Partager / Enregistrer") : null);
   }
 
-  for (const el of [iCompte, iDu, iAu, iMarquees, iSansEsp, iEntete, iFormat]) el.addEventListener("change", maj);
+  for (const el of [iCompte, iDu, iAu, iMarquees, iSansEsp, iEntete, iFormat, iColonnes]) el.addEventListener("change", maj);
   reconstruireComptes();
   maj();
   return { maj() { if (!iCompte.options.length || pret()) { if (!iCompte.options.length) reconstruireComptes(); maj(); } } };

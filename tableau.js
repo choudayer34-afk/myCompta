@@ -3,6 +3,10 @@ import { NATURES, STATUTS } from "./constantes.js";
 import { euros, aujourdhui, dateFr, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { analyserDate, analyserColle, preparerLignes, doublonsProbables } from "./saisie.js";
+import { associationPour } from "./noms.js";
+
+// Catégorie associée à ce nom (si l'association existe et que la catégorie existe encore)
+const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId) ? a.categorieId : null; };
 
 // Saisie en tableau : un même nom d'opération, plusieurs dates et montants (rattrapage).
 export function formTableau({ compteId }) {
@@ -120,7 +124,7 @@ export function formTableau({ compteId }) {
     const sens = Number(iSens.value), nom = iNom.value.trim(), jour = aujourdhui();
     const ecritures = aEcrire.map((v) => ["operations", nouvelId("operations"), {
       nom, commentaire: "", date: v.date, montant: sens * v.montant, compteId: iCompte.value, nature: iNature.value, info: "",
-      categorieId: iCat.value || null, statut: iStatut.value, datePointage: iStatut.value === "pointe" ? jour : null,
+      categorieId: iCat.value || categorieDe(nom), statut: iStatut.value, datePointage: iStatut.value === "pointe" ? jour : null,
       aExporter: iExport.checked, virementId: null, cree: serverTimestamp()
     }]);
     ecrireEnParallele(ecritures).catch((err) => { console.error(err); alert("Échec de l'enregistrement : " + err.message); });

@@ -1,6 +1,8 @@
 import { etat, pret, nouvelId, lot, categoriesTriees } from "./store.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 
+const ICONES_CAT = ["🛒", "🍽", "☕", "⛽", "🚗", "🚌", "🏠", "💡", "📱", "🌐", "🩺", "💊", "🎬", "🎁", "👕", "✈️", "🎓", "👶", "🐾", "🔧", "🏦", "💶", "🧾", "❤️", "🎉", "📦"];
+
 function formCategorie(cat = null) {
   const parents = etat.categories
     .filter((c) => !c.parentId && c.id !== cat?.id)
@@ -10,6 +12,8 @@ function formCategorie(cat = null) {
   const iNom = h("input", { type: "text", required: true, value: cat?.nom || "", autocomplete: "off" });
   const iParent = selecteur([["", "— aucune (catégorie principale) —"], ...parents], cat?.parentId || "", { disabled: aDesEnfants || null });
   const iCouleur = h("input", { type: "color", value: cat?.couleur || couleurAuHasard() });
+  const iIcone = h("input", { type: "text", value: cat?.icone || "", maxlength: "4", placeholder: "Touchez une icône ci-dessous", autocomplete: "off" });
+  const choixIcones = h("div", { class: "puces-cat" }, ICONES_CAT.map((i) => h("button", { type: "button", class: "puce-cat", onclick: () => { iIcone.value = iIcone.value === i ? "" : i; } }, i)));
   const erreur = h("p", { class: "erreur" });
 
   const actions = h("div", { class: "actions" },
@@ -26,13 +30,13 @@ function formCategorie(cat = null) {
   );
 
   const { dialogue, formulaire } = modale(cat ? "Modifier la catégorie" : "Nouvelle catégorie", [
-    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Couleur", iCouleur), erreur, actions
+    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Icône (facultative)", iIcone), choixIcones, champ("Couleur", iCouleur), erreur, actions
   ]);
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
     l.set("categories", cat?.id || nouvelId("categories"), {
-      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value
+      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value, icone: iIcone.value.trim()
     });
     l.envoyer();
     dialogue.close();
@@ -52,7 +56,7 @@ export function monter(conteneur) {
     resume.textContent = `${etat.categories.length} catégories`;
     const lignes = categoriesTriees().map((c) =>
       h("button", { class: "ligne bouton-ligne" + (c.parentId ? " enfant" : ""), style: `border-left-color:${c.couleur || "transparent"}`, onclick: () => formCategorie(etat.categories.find((x) => x.id === c.id)) },
-        h("div", { class: "gauche" }, h("strong", {}, c.parentId ? c.nom : c.libelle)),
+        h("div", { class: "gauche" }, h("strong", {}, (c.icone ? c.icone + " " : "") + (c.parentId ? c.nom : c.libelle))),
         h("div", { class: "droite" }, h("small", {}, `${utilisations.get(c.id) || 0} op.`))));
     liste.replaceChildren(...(lignes.length ? lignes : [h("p", { class: "vide" }, "Aucune catégorie. Touchez + pour en créer une.")]));
   }

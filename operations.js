@@ -1,123 +1,18 @@
 import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele, comparerComptes } from "./store.js";
 import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
-import { h, modale, champ, selecteur } from "./ui.js";
+import { h, modale, champ, selecteur, combo, couleurAuHasard } from "./ui.js";
+import { nomsConnus, associationPour, cleNom } from "./noms.js";
 import { formCompte } from "./comptes.js";
 import { NATURES, STATUTS } from "./constantes.js";
 import { formMasse } from "./masse.js";
 import { formTableau } from "./tableau.js";
 import { formRapide } from "./rapide.js";
+import { formOperation } from "./formoperation.js";
 
-export { NATURES, STATUTS };
+export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
 const libelleNature = (n) => (NATURES.find((x) => x[0] === n) || [0, ""])[1];
-
-// Formulaire de création / modification. `op` = opération existante, `modele` = valeurs de départ (duplication).
-export function formOperation({ compteId, op = null, modele = null }) {
-  const src = op || modele || {};
-  const virement = !!(op && op.virementId);
-  const paire = virement ? etat.operations.find((o) => o.virementId === op.virementId && o.id !== op.id) : null;
-  const signe = virement ? (op.montant < 0 ? -1 : 1) : 0;
-  const comptes = etat.comptes.filter((c) => !c.archive || c.id === src.compteId).sort(comparerComptes);
-  const optComptes = comptes.map((c) => [c.id, c.nom]);
-
-  const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], "operation");
-  const iNom = h("input", { type: "text", required: true, value: src.nom || "", autocomplete: "off" });
-  const iCom = h("input", { type: "text", value: src.commentaire || "" });
-  const iDate = h("input", { type: "date", required: true, value: src.date || aujourdhui() });
-  const iSens = selecteur([["-1", "Dépense"], ["1", "Recette"]], src.sens != null ? String(src.sens) : src.montant > 0 ? "1" : "-1");
-  const saisieRapide = !!modele && modele.montant == null;
-  const iMontant = h("input", { type: "text", inputmode: "decimal", required: true, autofocus: saisieRapide,
-    placeholder: modele && modele.dernierMontant != null ? "dernier : " + versSaisie(modele.dernierMontant) : "0,00", value: src.montant != null ? versSaisie(src.montant) : "" });
-  const iCompte = selecteur(optComptes, src.compteId || compteId);
-  const iDest = selecteur(optComptes, (comptes.find((c) => c.id !== (src.compteId || compteId)) || {}).id);
-  const iNature = selecteur(NATURES, src.nature || "autre");
-  const iInfo = h("input", { type: "text", value: src.info || "" });
-  const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], src.categorieId || "");
-  const iExport = h("input", { type: "checkbox", checked: op ? !!op.aExporter : true });
-  const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export");
-  const iStatut = selecteur(STATUTS, src.statut || "encours");
-  const iPointage = h("input", { type: "date", value: src.datePointage || "" });
-  const erreur = h("p", { class: "erreur" });
-
-  const cType = champ("Type de saisie", iType);
-  const cSens = champ("Sens", iSens);
-  const cCompte = champ("Compte", iCompte);
-  const cDest = champ("Compte destination", iDest);
-  const cNature = champ("Nature", iNature);
-  const cCat = champ("Catégorie", iCat);
-  const cPointage = champ("Date de pointage", iPointage);
-  const cLie = virement && h("p", { class: "note" }, `Virement lié à : ${(etat.comptes.find((c) => c.id === paire?.compteId) || {}).nom || "compte introuvable"}. Le montant, la date et le nom sont modifiés des deux côtés.`);
-
-  function basculer() {
-    const nouveauVirement = !op && iType.value === "virement";
-    cType.hidden = !!op || !!modele;
-    cSens.hidden = virement || nouveauVirement;
-    cCompte.hidden = virement;
-    cCompte.querySelector("label").textContent = nouveauVirement ? "Compte source" : "Compte (déplacer ici pour changer)";
-    cDest.hidden = !nouveauVirement;
-    cNature.hidden = virement || nouveauVirement;
-    cCat.hidden = virement || nouveauVirement;
-    cPointage.hidden = iStatut.value !== "pointe";
-    if (iStatut.value === "pointe" && !iPointage.value) iPointage.value = aujourdhui();
-  }
-  iType.addEventListener("change", basculer);
-  iStatut.addEventListener("change", basculer);
-
-  const actions = h("div", { class: "actions" },
-    h("button", { type: "submit" }, "Enregistrer"),
-    h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler"),
-    op && !virement && h("button", { type: "button", class: "sec", onclick: () => {
-      dialogue.close();
-      formOperation({ compteId: op.compteId, modele: { ...op, id: undefined, date: aujourdhui(), statut: "encours", datePointage: null } });
-    } }, "Dupliquer"),
-    op && h("button", { type: "button", class: "danger", onclick: () => {
-      if (!confirm(virement ? "Supprimer ce virement (les deux opérations) ?" : "Supprimer cette opération ?")) return;
-      const l = lot();
-      l.del("operations", op.id);
-      if (paire) l.del("operations", paire.id);
-      l.envoyer();
-      dialogue.close();
-    } }, "Supprimer")
-  );
-
-  const { dialogue, formulaire } = modale(op ? "Opération" : "Nouvelle opération", [
-    cType, champ("Nom", iNom), champ("Commentaire", iCom), champ("Date", iDate), cSens,
-    champ("Montant (€)", iMontant), cCompte, cDest, cNature, champ("Info (n° de chèque…)", iInfo), cCat,
-    cExport, champ("Statut", iStatut), cPointage, cLie, erreur, actions
-  ]);
-  basculer();
-  if (saisieRapide) iMontant.focus();
-
-  formulaire.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const saisi = versCentimes(iMontant.value);
-    if (saisi === null || saisi === 0) { erreur.textContent = "Montant invalide."; return; }
-    const m = Math.abs(saisi);
-    const statut = iStatut.value;
-    const datePointage = statut === "pointe" ? (iPointage.value || aujourdhui()) : null;
-    const commun = { nom: iNom.value.trim(), commentaire: iCom.value.trim(), date: iDate.value, statut, datePointage, info: iInfo.value.trim(), aExporter: iExport.checked };
-    const l = lot();
-
-    if (virement) {
-      l.set("operations", op.id, { ...commun, montant: signe * m });
-      if (paire) l.set("operations", paire.id, { nom: commun.nom, commentaire: commun.commentaire, date: commun.date, montant: -signe * m });
-    } else if (!op && iType.value === "virement") {
-      if (iCompte.value === iDest.value) { erreur.textContent = "Choisissez deux comptes différents."; return; }
-      const vid = nouvelId("operations"), idB = nouvelId("operations");
-      const base = { ...commun, nature: "virement", categorieId: null, virementId: vid, cree: serverTimestamp() };
-      l.set("operations", vid, { ...base, compteId: iCompte.value, montant: -m });
-      l.set("operations", idB, { ...base, compteId: iDest.value, montant: m });
-    } else {
-      const id = op?.id || nouvelId("operations");
-      const donnees = { ...commun, compteId: iCompte.value, montant: Number(iSens.value) * m, nature: iNature.value, categorieId: iCat.value || null, virementId: null };
-      if (!op) donnees.cree = serverTimestamp();
-      l.set("operations", id, donnees);
-    }
-    l.envoyer();
-    dialogue.close();
-  });
-}
 
 const PAGE = 200;
 
@@ -245,7 +140,7 @@ export function monter(conteneur, { id }) {
         } },
           h("div", { class: "gauche" },
             h("strong", {}, o.nom),
-            h("small", {}, `${dateFr(o.date)}${cat ? " · " + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}`)),
+            h("small", {}, `${dateFr(o.date)}${cat ? " · " + (cat.icone ? cat.icone + " " : "") + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}`)),
           h("div", { class: "droite" },
             h("small", {}, euros(o.solde)),
             h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),

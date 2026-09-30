@@ -5,9 +5,9 @@ import { db } from "./firebase.js";
 export { serverTimestamp };
 
 // Copie locale de toutes les données de l'utilisateur, mise à jour en direct.
-export const etat = { uid: null, comptes: [], categories: [], operations: [], planifiees: [] };
-const charge = { comptes: false, categories: false, operations: false, planifiees: false };
-const serveur = { comptes: false, categories: false, operations: false, planifiees: false };
+export const etat = { uid: null, comptes: [], categories: [], operations: [], planifiees: [], nomsCategories: [] };
+const charge = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false };
+const serveur = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false };
 const abonnes = new Set();
 let arrets = [];
 let planifie = false;
@@ -29,7 +29,8 @@ export const donneesFiables = () => pret() && (!navigator.onLine || (serveur.com
 export function demarrer(uid) {
   arreter();
   etat.uid = uid;
-  for (const nom of ["comptes", "categories", "operations", "planifiees"]) {
+  // nomsCategories (association nom → catégorie) n'entre pas dans « pret » : l'application ne l'attend pas.
+  for (const nom of ["comptes", "categories", "operations", "planifiees", "nomsCategories"]) {
     arrets.push(onSnapshot(
       collection(db, "users", uid, nom),
       (snap) => {
@@ -47,7 +48,7 @@ export function arreter() {
   arrets.forEach((a) => a());
   arrets = [];
   etat.uid = null;
-  etat.comptes = []; etat.categories = []; etat.operations = []; etat.planifiees = [];
+  etat.comptes = []; etat.categories = []; etat.operations = []; etat.planifiees = []; etat.nomsCategories = [];
   for (const k of Object.keys(charge)) { charge[k] = false; serveur[k] = false; }
   notifier();
 }
