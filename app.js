@@ -11,6 +11,7 @@ import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
+import { majAlertes } from "./alertes.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -63,6 +64,13 @@ $("btn-ticket").addEventListener("click", () => {
   }));
 });
 
+// Alertes budget : bandeau et pastille sur l'onglet
+let surBudgets = false;
+function rafraichirAlertes() {
+  if (!auth.currentUser) return;
+  majAlertes($("bandeau-budget"), document.querySelector('nav a[data-onglet="budgets"]'), surBudgets);
+}
+
 // Navigation par adresse (#/comptes, #/compte/ID, #/categories)
 let vue = null;
 function naviguer() {
@@ -91,6 +99,8 @@ function naviguer() {
     vue = vueComptes.monter(principal);
   }
   document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("actif", a.dataset.onglet === onglet));
+  surBudgets = onglet === "budgets";
+  rafraichirAlertes();
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", () => { if (auth.currentUser) naviguer(); });
@@ -102,7 +112,7 @@ function tenterGeneration() {
   try { vueEcheancier.genererEcheances(); } catch (e) { console.error(e); }
   generationEnCours = false;
 }
-abonner(() => { if (vue && vue.maj) vue.maj(); tenterGeneration(); });
+abonner(() => { if (vue && vue.maj) vue.maj(); rafraichirAlertes(); tenterGeneration(); });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tenterGeneration(); });
 
 onAuthStateChanged(auth, (user) => {

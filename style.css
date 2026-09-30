@@ -256,3 +256,18 @@ button.ligne-hors { cursor:pointer; }
 .montants-budget { white-space:nowrap; }
 nav a { padding:14px 2px; font-size:.74rem; letter-spacing:-.01em; }
 .montants-budget { font-size:.88rem; color:var(--discret); } .nom-budget { flex:1 1 auto; overflow-wrap:normal; }
+
+/* Alertes budget */
+.rappel-budget { border-color:#ea580c; background:#fff7ed; color:var(--texte); }
+.rappel-budget.rouge { border-color:#dc2626; background:#fef2f2; }
+.rappel-actions { display:flex; align-items:center; gap:10px; }
+.rappel-actions button { padding:2px 8px; }
+nav a { position:relative; }
+nav a.alerte-orange::after, nav a.alerte-rouge::after { content:""; position:absolute; top:8px; right:calc(50% - 26px); width:9px; height:9px; border-radius:50%; background:#ea580c; }
+nav a.alerte-rouge::after { background:#dc2626; }
+
+/* Navigation par symboles */
+nav a { font-size:1.45rem; padding:10px 2px 8px; line-height:1; opacity:.5; border-top:3px solid transparent; letter-spacing:0; }
+nav a.actif { opacity:1; border-top-color:var(--accent); }
+nav a.alerte-orange::after, nav a.alerte-rouge::after { top:6px; right:calc(50% - 20px); }
+.ligne-hors.sans-cat { border-color:#ea580c; }

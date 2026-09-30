@@ -1,7 +1,9 @@
 import { etat, pret, lot, categoriesTriees } from "./store.js";
-import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
+import { formOperation } from "./formoperation.js";
+import { formMasse } from "./masse.js";
+import { euros, versCentimes, versSaisie, aujourdhui, dateFr } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
-import { calculerBudget, moisDecale } from "./budget.js";
+import { calculerBudget, detailCategorie, moisDecale } from "./budget.js";
 
 const moisTexte = (ym) => {
   const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
@@ -77,20 +79,81 @@ function formComptes() {
 
 export function monter(conteneur) {
   let mois = aujourdhui().slice(0, 7);
+  let detail = null;            // { id } : catégorie affichée en détail (id null = sans catégorie)
+  const choisies = new Set();
+  let message = "";
   const titre = h("strong", { class: "mois-budget" });
   const nav = h("div", { class: "nav-mois" },
-    h("button", { type: "button", class: "sec", "aria-label": "Mois précédent", onclick: () => { mois = moisDecale(mois, -1); maj(); } }, "‹"),
+    h("button", { type: "button", class: "sec", "aria-label": "Mois précédent", onclick: () => { mois = moisDecale(mois, -1); choisies.clear(); maj(); } }, "‹"),
     titre,
-    h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); maj(); } }, "›"));
+    h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); choisies.clear(); maj(); } }, "›"));
+  const enTete = h("div", { class: "entete-vue" });
   const corps = h("div", {});
-  conteneur.replaceChildren(h("div", { class: "entete-vue" }, h("strong", { class: "titre-vue" }, "Budgets"),
-    h("button", { type: "button", class: "sec", onclick: () => pret() && formComptes() }, "Comptes suivis")), nav, corps);
+  const barreSel = h("div", { class: "barre-selection cache" });
+  conteneur.replaceChildren(enTete, nav, corps, barreSel);
 
-  function maj() {
-    titre.textContent = moisTexte(mois);
-    if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
-    const r = calculerBudget({ categories: etat.categories, operations: etat.operations, planifiees: etat.planifiees, comptes: etat.comptes,
-      budgets: etat.budgets, comptesIds: comptesSuivis(), mois, aujourdhui: aujourdhui() });
+  const ouvrir = (id) => { detail = { id }; choisies.clear(); message = ""; maj(); window.scrollTo(0, 0); };
+  const retour = () => { detail = null; choisies.clear(); message = ""; maj(); };
+  const params = () => ({ categories: etat.categories, operations: etat.operations, planifiees: etat.planifiees, comptes: etat.comptes,
+    budgets: etat.budgets, comptesIds: comptesSuivis(), mois, aujourdhui: aujourdhui() });
+
+  function majDetail() {
+    const id = detail.id;
+    const p = params();
+    const d = detailCategorie({ ...p, categorieId: id });
+    const r = calculerBudget(p);
+    const ligne = id ? r.lignes.find((l) => l.categorieId === id) : null;
+    enTete.replaceChildren(h("button", { type: "button", class: "sec", onclick: retour }, "‹ Budgets"),
+      h("strong", { class: "titre-vue" }, etiquette(id)),
+      id ? h("button", { type: "button", class: "sec", onclick: () => formBudget(id, !ligne) }, ligne ? "Plafond" : "Définir un plafond") : h("span"));
+    const noeuds = [];
+    noeuds.push(h("div", { class: "carte synthese-budget" },
+      h("div", { class: "ligne-synthese" }, h("span", {}, "Dépensé"), h("strong", {}, euros(d.total))),
+      ligne ? h("div", { class: "ligne-synthese" }, h("span", {}, "Plafond"), h("strong", {}, euros(ligne.budget))) : null,
+      ligne ? barre(ligne) : null,
+      ligne ? h("p", { class: "reste-budget " + (ligne.reste < 0 ? "neg" : "pos") }, ligne.reste < 0 ? `Dépassement ${euros(-ligne.reste)}` : `Reste ${euros(ligne.reste)}`) : null));
+    // Répartition par sous-catégorie
+    const sous = d.parCategorie.filter((x) => x.categorieId !== id);
+    if (id && sous.length) {
+      noeuds.push(h("h3", { class: "groupe" }, "Par sous-catégorie"));
+      const propre = d.parCategorie.find((x) => x.categorieId === id);
+      if (propre) noeuds.push(h("div", { class: "carte ligne-hors" }, h("span", {}, "Directement dans cette catégorie"), h("strong", {}, euros(propre.realise))));
+      for (const x of sous) noeuds.push(h("button", { type: "button", class: "carte ligne-hors", onclick: () => ouvrir(x.categorieId) }, h("span", {}, etiquette(x.categorieId)), h("strong", {}, euros(x.realise))));
+    }
+    // Opérations
+    const existantes = new Set(d.ops.map((o) => o.id));
+    for (const k of [...choisies]) if (!existantes.has(k)) choisies.delete(k);
+    noeuds.push(h("h3", { class: "groupe" }, `Opérations (${d.ops.length})`));
+    if (message) noeuds.push(h("p", { class: "note" }, message));
+    if (!d.ops.length) noeuds.push(h("p", { class: "vide" }, id ? "Aucune opération ce mois-ci." : "Toutes les opérations du mois sont catégorisées."));
+    const comptes = new Map(etat.comptes.map((c) => [c.id, c.nom]));
+    for (const o of d.ops) {
+      const coche = choisies.has(o.id);
+      noeuds.push(h("div", { class: "ligne avec-pointage" + (coche ? " choisie" : "") },
+        h("button", { type: "button", class: "pointer", "aria-label": coche ? "Désélectionner" : "Sélectionner",
+          onclick: () => { if (coche) choisies.delete(o.id); else choisies.add(o.id); majDetail(); } }, coche ? "☑" : "☐"),
+        h("button", { type: "button", class: "corps", onclick: () => formOperation({ compteId: o.compteId, op: o }) },
+          h("div", { class: "gauche" }, h("strong", {}, o.nom), h("small", {}, `${dateFr(o.date)} · ${comptes.get(o.compteId) || ""}${id && o.categorieId !== id ? " · " + etiquette(o.categorieId) : ""}`)),
+          h("div", { class: "droite" }, h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant))))));
+    }
+    corps.replaceChildren(...noeuds);
+    // Barre de sélection : catégoriser en masse
+    barreSel.classList.toggle("cache", !d.ops.length);
+    barreSel.replaceChildren(h("span", { class: "nb" }, `${choisies.size} sélectionnée(s)`),
+      h("button", { type: "button", class: "sec", onclick: () => { d.ops.forEach((o) => choisies.add(o.id)); majDetail(); } }, "Tout"),
+      h("button", { type: "button", class: "sec", onclick: () => { choisies.clear(); majDetail(); } }, "Aucune"),
+      h("button", { type: "button", disabled: choisies.size ? null : true, onclick: () => {
+        const ops = etat.operations.filter((o) => choisies.has(o.id));
+        if (!ops.length) return;
+        formMasse(ops, (nb) => { message = `${nb} opération(s) modifiée(s).`; choisies.clear(); majDetail(); });
+      } }, "Modifier…"));
+  }
+
+  function majListe() {
+    barreSel.classList.add("cache");
+    enTete.replaceChildren(h("strong", { class: "titre-vue" }, "Budgets"),
+      h("button", { type: "button", class: "sec", onclick: () => pret() && formComptes() }, "Comptes suivis"));
+    const r = calculerBudget(params());
     const noeuds = [];
     if (r.lignes.length) {
       const reste = r.totalBudget - r.totalRealise;
@@ -102,11 +165,10 @@ export function monter(conteneur) {
         barre({ budget: r.totalBudget, realise: r.totalRealise, prevu: r.totalPrevu, ratio: ratioTotal }),
         h("p", { class: "reste-budget " + (reste < 0 ? "neg" : "pos") }, reste < 0 ? `Dépassement ${euros(-reste)}` : `Reste ${euros(reste)}`)));
       for (const l of r.lignes) {
-        const apres = l.budget - l.realise - l.prevu;
-        noeuds.push(h("button", { type: "button", class: "carte ligne-budget", onclick: () => formBudget(l.categorieId) },
+        noeuds.push(h("button", { type: "button", class: "carte ligne-budget", onclick: () => ouvrir(l.categorieId) },
           h("div", { class: "haut-budget" }, h("span", { class: "nom-budget" }, etiquette(l.categorieId)), h("span", { class: "montants-budget" }, `${euros(l.realise)} / ${euros(l.budget)}`)),
           barre(l),
-          h("small", { class: apres < 0 ? "neg" : "" },
+          h("small", { class: l.reste < 0 ? "neg" : "" },
             (l.reste < 0 ? `Dépassement ${euros(-l.reste)}` : `Reste ${euros(l.reste)}`) + (l.prevu ? ` · prévu ${euros(l.prevu)}` : ""))));
       }
     } else {
@@ -116,12 +178,18 @@ export function monter(conteneur) {
     if (r.hors.length) {
       noeuds.push(h("h3", { class: "groupe" }, `Hors budget · ${euros(r.horsTotal)}`));
       for (const x of r.hors) {
-        const cliquable = !!x.categorieId && etat.categories.some((c) => c.id === x.categorieId);
-        noeuds.push(h(cliquable ? "button" : "div", { type: cliquable ? "button" : null, class: "carte ligne-hors", onclick: cliquable ? () => formBudget(x.categorieId) : null },
+        const existe = !x.categorieId || etat.categories.some((c) => c.id === x.categorieId);
+        noeuds.push(h(existe ? "button" : "div", { type: existe ? "button" : null, class: "carte ligne-hors" + (x.categorieId ? "" : " sans-cat"), onclick: existe ? () => ouvrir(x.categorieId) : null },
           h("span", {}, etiquette(x.categorieId)), h("strong", {}, euros(x.realise))));
       }
     }
     corps.replaceChildren(...noeuds);
+  }
+
+  function maj() {
+    titre.textContent = moisTexte(mois);
+    if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
+    if (detail) majDetail(); else majListe();
   }
   maj();
   return { maj };

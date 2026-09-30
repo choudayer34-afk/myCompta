@@ -1,4 +1,4 @@
-const VERSION = "v24";
+const VERSION = "v26";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
@@ -31,6 +31,7 @@ const COQUILLE = [
   "./voix.js",
   "./budget.js",
   "./budgets.js",
+  "./alertes.js",
   "./sauvegarde.js",
   "./sauvegardeui.js",
   "./manifest.webmanifest",

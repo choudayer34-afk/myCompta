@@ -71,3 +71,31 @@ export function calculerBudget({ categories, operations, planifiees, comptes, bu
   hors.sort((a, b) => b.realise - a.realise);
   return { lignes, totalBudget, totalRealise, totalPrevu, hors, horsTotal: hors.reduce((s, x) => s + x.realise, 0) };
 }
+
+// Alertes du mois : catégories budgétées dont le dépensé atteint 80 % (« proche ») ou dépasse 100 % (« depasse »).
+export function alertesBudget(resultat) {
+  return resultat.lignes
+    .filter((l) => l.budget > 0 && l.realise / l.budget >= 0.8)
+    .map((l) => ({ categorieId: l.categorieId, niveau: l.realise > l.budget ? "depasse" : "proche", pourcent: Math.round((l.realise / l.budget) * 100) }))
+    .sort((a, b) => b.pourcent - a.pourcent);
+}
+
+// Opérations qui composent le « réalisé » d'une catégorie (sous-catégories comprises) pour un mois ; categorieId null = sans catégorie.
+// Retourne { ops (plus récentes d'abord), parCategorie: [{ categorieId, realise }] (plus forte dépense d'abord), total }
+export function detailCategorie({ categories, operations, comptes, comptesIds = [], mois, categorieId }) {
+  const [debut, fin] = bornesMois(mois);
+  const suivis = new Map(comptes.filter((c) => (comptesIds.length ? comptesIds.includes(c.id) : !c.archive)).map((c) => [c.id, c]));
+  const ids = categorieId ? avecDescendants(categories, categorieId) : null;
+  const ops = [], par = new Map();
+  let total = 0;
+  for (const o of operations) {
+    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId || o.nature === "virement") continue;
+    if (ids ? !(o.categorieId && ids.has(o.categorieId)) : !!o.categorieId) continue;
+    const v = -Math.round(o.montant * partCompte(suivis.get(o.compteId)) / 100);
+    ops.push(o); total += v;
+    const cle = o.categorieId || null;
+    par.set(cle, (par.get(cle) || 0) + v);
+  }
+  ops.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { ops, parCategorie: [...par].map(([c, r]) => ({ categorieId: c, realise: r })).sort((a, b) => b.realise - a.realise), total };
+}
