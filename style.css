@@ -230,3 +230,29 @@ header > div { flex-wrap:wrap; justify-content:flex-end; min-width:0; }
 .ligne-voix .lib { color:var(--discret); }
 .ligne-voix .val { font-weight:600; text-align:right; }
 .ligne-voix.manque .val { color:var(--alerte); font-weight:400; }
+
+.rappel { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 10px; padding:8px 12px; border:1px solid var(--alerte); border-radius:10px; font-size:.9rem; }
+.rappel a { color:var(--accent); font-weight:600; white-space:nowrap; }
+
+/* Budgets */
+nav a { font-size:.78rem; padding:14px 0; white-space:nowrap; }
+.nav-mois { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:8px 0 12px; }
+.nav-mois button { min-width:44px; font-size:1.2rem; }
+.barre-budget { display:flex; height:10px; border-radius:6px; background:var(--bord); overflow:hidden; margin:8px 0 6px; }
+.barre-budget .reel { background:var(--bb,#16a34a); }
+.barre-budget .prevu { background:var(--bb,#16a34a); opacity:.4; }
+.barre-budget.vert { --bb:#16a34a; } .barre-budget.orange { --bb:#ea580c; } .barre-budget.rouge { --bb:#dc2626; }
+.ligne-synthese { display:flex; justify-content:space-between; padding:2px 0; }
+.reste-budget { margin:4px 0 0; font-weight:700; text-align:right; }
+.ligne-budget { display:block; width:100%; text-align:left; color:var(--texte); font:inherit; cursor:pointer; margin-bottom:10px; }
+.haut-budget { display:flex; justify-content:space-between; gap:8px; }
+.ligne-budget small.neg { color:#dc2626; }
+.ligne-hors { display:flex; justify-content:space-between; width:100%; color:var(--texte); font:inherit; text-align:left; margin-bottom:8px; padding:12px 16px; }
+button.ligne-hors { cursor:pointer; }
+.ajout-budget { width:100%; background:transparent; color:var(--accent); border:1px dashed var(--accent); margin:4px 0 12px; }
+.reste-budget.neg { color:var(--neg); } .reste-budget.pos { color:var(--pos); }
+.ligne-budget { display:block; }
+.nom-budget { font-weight:700; flex:1; min-width:0; overflow-wrap:anywhere; }
+.montants-budget { white-space:nowrap; }
+nav a { padding:14px 2px; font-size:.74rem; letter-spacing:-.01em; }
+.montants-budget { font-size:.88rem; color:var(--discret); } .nom-budget { flex:1 1 auto; overflow-wrap:normal; }

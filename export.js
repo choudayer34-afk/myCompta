@@ -2,6 +2,7 @@ import { etat, pret, comparerComptes } from "./store.js";
 import { aujourdhui, dateFr, euros } from "./format.js";
 import { h, selecteur, champ } from "./ui.js";
 import { selectionner, lignesExport, construireXlsx, montantTexte } from "./exportation.js";
+import { carteSauvegarde } from "./sauvegardeui.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 const iso = (d) => `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
@@ -28,6 +29,7 @@ export function monter(conteneur, { id } = {}) {
   function preset(annee, mois, jusqua) { iDu.value = debutMois(annee, mois); iAu.value = jusqua || finMois(annee, mois); maj(); }
   const precedent = m === 1 ? [a - 1, 12] : [a, m - 1];
 
+  const sauvegarde = carteSauvegarde();
   conteneur.replaceChildren(
     h("div", { class: "carte" },
       h("h2", {}, "Export Excel"),
@@ -42,7 +44,7 @@ export function monter(conteneur, { id } = {}) {
       h("label", { class: "case" }, iSansEsp, "Supprimer aussi les espaces dans les titres"),
       cEntete,
       cFormat),
-    apercu, boutons);
+    apercu, boutons, sauvegarde.element);
 
   function reconstruireComptes() {
     const valeur = iCompte.value || id || "";
@@ -100,5 +102,5 @@ export function monter(conteneur, { id } = {}) {
   for (const el of [iCompte, iDu, iAu, iMarquees, iSansEsp, iEntete, iFormat, iColonnes]) el.addEventListener("change", maj);
   reconstruireComptes();
   maj();
-  return { maj() { if (!iCompte.options.length || pret()) { if (!iCompte.options.length) reconstruireComptes(); maj(); } } };
+  return { maj() { sauvegarde.maj(); if (!iCompte.options.length || pret()) { if (!iCompte.options.length) reconstruireComptes(); maj(); } } };
 }

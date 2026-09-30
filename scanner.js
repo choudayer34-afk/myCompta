@@ -97,10 +97,22 @@ export function scannerTicket(apres) {
   });
   const bFichier = h("button", { type: "button", class: "sec", onclick: () => iFichier.click() }, "Choisir une image");
   const bAnnuler = h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler");
+  // Flash (lampe de l'appareil) : uniquement si le navigateur l'autorise pour la caméra (Chrome sur Android ; Safari sur iPhone ne le permet pas)
+  let flashAllume = false;
+  const bFlash = h("button", { type: "button", class: "sec", hidden: true, onclick: async () => {
+    const piste = flux && flux.getVideoTracks()[0];
+    if (!piste) return;
+    try {
+      await piste.applyConstraints({ advanced: [{ torch: !flashAllume }] });
+      flashAllume = !flashAllume;
+      bFlash.textContent = flashAllume ? "🔦 Flash : allumé" : "🔦 Flash";
+      bFlash.classList.toggle("actif-filtre", flashAllume);
+    } catch (e) { erreur.textContent = "Flash indisponible sur cet appareil."; bFlash.hidden = true; }
+  } }, "🔦 Flash");
 
   const { dialogue } = modale("Scanner un ticket", [
     h("div", { class: "scan-cadre" }, video), etatTexte, erreur,
-    h("div", { class: "actions" }, bLire, bFichier, bAnnuler), iFichier
+    h("div", { class: "actions" }, bLire, bFlash, bFichier, bAnnuler), iFichier
   ]);
   dialogue.addEventListener("close", arreter);
 
@@ -111,6 +123,10 @@ export function scannerTicket(apres) {
       if (!dialogue.isConnected) { arreter(); return; }
       video.srcObject = flux;
       await video.play().catch(() => {});
+      const piste = flux.getVideoTracks()[0];
+      const capacites = piste && piste.getCapabilities ? piste.getCapabilities() : {};
+      if (capacites.torch) bFlash.hidden = false;
+      else etatTexte.textContent += " Le flash n'est pas accessible aux applications web sur cet appareil : éclairez bien le ticket.";
     } catch (e) {
       erreur.textContent = "Accès à la caméra refusé ou impossible : autorisez-la dans les réglages, ou utilisez « Choisir une image ».";
       bLire.disabled = true;

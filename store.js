@@ -5,9 +5,9 @@ import { db } from "./firebase.js";
 export { serverTimestamp };
 
 // Copie locale de toutes les données de l'utilisateur, mise à jour en direct.
-export const etat = { uid: null, comptes: [], categories: [], operations: [], planifiees: [], nomsCategories: [] };
-const charge = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false };
-const serveur = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false };
+export const etat = { uid: null, comptes: [], categories: [], operations: [], planifiees: [], nomsCategories: [], budgets: [], reglages: [] };
+const charge = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false, budgets: false, reglages: false };
+const serveur = { comptes: false, categories: false, operations: false, planifiees: false, nomsCategories: false, budgets: false, reglages: false };
 const abonnes = new Set();
 let arrets = [];
 let planifie = false;
@@ -29,8 +29,8 @@ export const donneesFiables = () => pret() && (!navigator.onLine || (serveur.com
 export function demarrer(uid) {
   arreter();
   etat.uid = uid;
-  // nomsCategories (association nom → catégorie) n'entre pas dans « pret » : l'application ne l'attend pas.
-  for (const nom of ["comptes", "categories", "operations", "planifiees", "nomsCategories"]) {
+  // nomsCategories, budgets et reglages n'entrent pas dans « pret » : l'application ne l'attend pas.
+  for (const nom of ["comptes", "categories", "operations", "planifiees", "nomsCategories", "budgets", "reglages"]) {
     arrets.push(onSnapshot(
       collection(db, "users", uid, nom),
       (snap) => {
@@ -48,7 +48,7 @@ export function arreter() {
   arrets.forEach((a) => a());
   arrets = [];
   etat.uid = null;
-  etat.comptes = []; etat.categories = []; etat.operations = []; etat.planifiees = []; etat.nomsCategories = [];
+  etat.comptes = []; etat.categories = []; etat.operations = []; etat.planifiees = []; etat.nomsCategories = []; etat.budgets = []; etat.reglages = [];
   for (const k of Object.keys(charge)) { charge[k] = false; serveur[k] = false; }
   notifier();
 }
@@ -90,6 +90,18 @@ export function ecrireEnParallele(ecritures) {
     for (const [nom, id, donnees] of ecritures.slice(i, i + TAILLE)) {
       b.set(doc(db, "users", etat.uid, nom, id), donnees, { merge: true });
     }
+    promesses.push(b.commit());
+  }
+  return Promise.all(promesses);
+}
+
+// Suppression de nombreux documents : [[collection, id], ...]
+export function supprimerEnParallele(suppressions) {
+  const TAILLE = 400;
+  const promesses = [];
+  for (let i = 0; i < suppressions.length; i += TAILLE) {
+    const b = writeBatch(db);
+    for (const [nom, id] of suppressions.slice(i, i + TAILLE)) b.delete(doc(db, "users", etat.uid, nom, id));
     promesses.push(b.commit());
   }
   return Promise.all(promesses);

@@ -2,6 +2,7 @@ import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes } from ".
 import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
+import { dernierSauvegarde } from "./sauvegardeui.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -65,10 +66,11 @@ export function formCompte(compte = null) {
 
 export function monter(conteneur) {
   const resume = h("div", { class: "resume" });
+  const rappel = h("div", { class: "rappel cache" });
   const liste = h("div", { class: "liste" });
   const totaux = h("div", { class: "carte totaux" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouveau compte", onclick: () => formCompte() }, "+");
-  conteneur.replaceChildren(resume, liste, totaux, ajout);
+  conteneur.replaceChildren(resume, rappel, liste, totaux, ajout);
 
   const nbAPointer = (c) => etat.operations.filter((o) => o.compteId === c.id && o.statut === "encours").length;
 
@@ -130,6 +132,12 @@ export function monter(conteneur) {
     const archives = etat.comptes.filter((c) => c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     const t = totauxComptes(etat.comptes, etat.operations);
     resume.textContent = `${etat.operations.length} opérations`;
+    // Rappel de sauvegarde : jamais faite (et des données à protéger) ou datant de plus de 30 jours
+    const d = dernierSauvegarde();
+    const jours = d ? Math.floor((Date.now() - Date.parse(d)) / 86400000) : Infinity;
+    const afficher = etat.operations.length >= 20 && jours > 30;
+    rappel.classList.toggle("cache", !afficher);
+    if (afficher) rappel.replaceChildren(h("span", {}, d ? `Dernière sauvegarde il y a ${jours} jours.` : "Aucune sauvegarde faite depuis cet appareil."), h("a", { href: "#/export" }, "Sauvegarder"));
     const ligneTotal = (libelle, montant, gras) => h("div", { class: "total-ligne" + (gras ? " gras" : "") }, h("span", {}, libelle), h("span", { class: "montant " + (montant < 0 ? "neg" : "pos") }, euros(montant)));
     totaux.replaceChildren(
       h("h3", {}, "Mon argent"),

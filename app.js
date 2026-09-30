@@ -10,6 +10,7 @@ import * as vueCategories from "./categories.js";
 import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
+import * as vueBudgets from "./budgets.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -77,6 +78,9 @@ function naviguer() {
   } else if (hash === "#/echeancier") {
     onglet = "echeancier";
     vue = vueEcheancier.monter(principal);
+  } else if (hash === "#/budgets") {
+    onglet = "budgets";
+    vue = vueBudgets.monter(principal);
   } else if (hash === "#/import") {
     onglet = "import";
     vue = vueImport.monter(principal);
