@@ -1,7 +1,7 @@
 import { etat, pret } from "./store.js";
 import { euros, aujourdhui, dateFr } from "./format.js";
 import { h } from "./ui.js";
-import { comptesSuivis, formComptes, etiquette } from "./budgets.js";
+import { comptesSuivis, etiquette } from "./budgets.js";
 import { repartitionDepenses, pourPart, bornesPeriode } from "./bilancalc.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -51,15 +51,13 @@ function camembert(parts, total, choisi, surChoix) {
   return svg("svg", { viewBox: "0 0 220 220", class: "camembert", role: "group", "aria-label": "Répartition des dépenses par poste" }, ...enfants);
 }
 
-export function monter(conteneur) {
+export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
   let mode = "mois";
-  let ref = aujourdhui().slice(0, 7) + "-01";
+  let ref = mois + "-01";
   let debutLibre = aujourdhui().slice(0, 8) + "01", finLibre = aujourdhui();
   let choisi = null;       // poste mis en avant
   let ouverts = new Set(); // postes dépliés
 
-  const enTete = h("div", { class: "entete-vue" }, h("strong", { class: "titre-vue" }, "Bilan"),
-    h("button", { type: "button", class: "sec", onclick: () => pret() && formComptes() }, "Comptes suivis"));
   const modes = h("div", { class: "modes-bilan" }, [["mois", "Mois"], ["annee", "Année"], ["libre", "Période"]].map(([m, l]) =>
     h("button", { type: "button", class: "sec" + (mode === m ? " actif-filtre" : ""), "data-mode": m, onclick: () => { mode = m; choisi = null; ouverts.clear(); maj(); } }, l)));
   const titre = h("strong", { class: "mois-budget" });
@@ -72,7 +70,7 @@ export function monter(conteneur) {
   iDebut.addEventListener("change", () => { debutLibre = iDebut.value; maj(); });
   iFin.addEventListener("change", () => { finLibre = iFin.value; maj(); });
   const corps = h("div", {});
-  conteneur.replaceChildren(enTete, modes, nav, libre, corps);
+  conteneur.replaceChildren(modes, nav, libre, corps);
 
   function maj() {
     modes.querySelectorAll("button").forEach((b) => b.classList.toggle("actif-filtre", b.dataset.mode === mode));

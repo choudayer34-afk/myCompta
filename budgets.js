@@ -4,6 +4,7 @@ import { formMasse } from "./masse.js";
 import { euros, versCentimes, versSaisie, aujourdhui, dateFr } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { calculerBudget, detailCategorie, moisDecale } from "./budget.js";
+import * as vueRepartition from "./bilan.js";
 
 const moisTexte = (ym) => {
   const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
@@ -79,6 +80,8 @@ export function formComptes() {
 
 export function monter(conteneur) {
   let mois = aujourdhui().slice(0, 7);
+  let vueCourante = "plafonds";   // « plafonds » ou « repartition » (camembert)
+  let repartition = null;
   let detail = null;            // { id } : catégorie affichée en détail (id null = sans catégorie)
   const choisies = new Set();
   let message = "";
@@ -88,9 +91,11 @@ export function monter(conteneur) {
     titre,
     h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); choisies.clear(); maj(); } }, "›"));
   const enTete = h("div", { class: "entete-vue" });
+  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"]].map(([v, l]) =>
+    h("button", { type: "button", class: "sec", "data-vue": v, onclick: () => { vueCourante = v; repartition = null; maj(); } }, l)));
   const corps = h("div", {});
   const barreSel = h("div", { class: "barre-selection cache" });
-  conteneur.replaceChildren(enTete, nav, corps, barreSel);
+  conteneur.replaceChildren(enTete, onglets, nav, corps, barreSel);
 
   const ouvrir = (id) => { detail = { id }; choisies.clear(); message = ""; maj(); window.scrollTo(0, 0); };
   const retour = () => { detail = null; choisies.clear(); message = ""; maj(); };
@@ -188,8 +193,18 @@ export function monter(conteneur) {
 
   function maj() {
     titre.textContent = moisTexte(mois);
+    const repart = vueCourante === "repartition" && !detail;
+    onglets.classList.toggle("cache", !!detail);
+    onglets.querySelectorAll("button").forEach((b) => b.classList.toggle("actif-filtre", b.dataset.vue === vueCourante));
+    nav.classList.toggle("cache", repart);
     if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
-    if (detail) majDetail(); else majListe();
+    if (detail) { repartition = null; majDetail(); }
+    else if (repart) {
+      barreSel.classList.add("cache");
+      enTete.replaceChildren(h("strong", { class: "titre-vue" }, "Budgets"),
+        h("button", { type: "button", class: "sec", onclick: () => formComptes() }, "Comptes suivis"));
+      if (!repartition) { const zone = h("div", {}); corps.replaceChildren(zone); repartition = vueRepartition.monter(zone, { mois }); } else repartition.maj();
+    } else { repartition = null; majListe(); }
   }
   maj();
   return { maj };

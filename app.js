@@ -11,7 +11,6 @@ import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
-import * as vueBilan from "./bilan.js";
 import { majAlertes } from "./alertes.js";
 
 const $ = (id) => document.getElementById(id);
@@ -91,10 +90,7 @@ function naviguer() {
   } else if (hash === "#/echeancier") {
     onglet = "echeancier";
     vue = vueEcheancier.monter(principal);
-  } else if (hash === "#/bilan") {
-    onglet = "bilan";
-    vue = vueBilan.monter(principal);
-  } else if (hash === "#/budgets") {
+  } else if (hash === "#/budgets" || hash === "#/bilan") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);
   } else if (hash === "#/import") {
