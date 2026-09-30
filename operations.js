@@ -8,6 +8,7 @@ import { NATURES, STATUTS } from "./constantes.js";
 import { formMasse } from "./masse.js";
 import { formRapide } from "./rapide.js";
 import { formOperation } from "./formoperation.js";
+import { formCloture } from "./clotureui.js";
 
 export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
@@ -46,8 +47,12 @@ export function monter(conteneur, { id }) {
   const liste = h("div", { class: "liste" });
   const bSelect = h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Sélectionner");
   const bRapide = h("button", { type: "button", class: "sec", onclick: () => compte() && formRapide({ compteId: id }) }, "Tableau rapide");
+  const bCloture = h("button", { type: "button", class: "sec", onclick: () => compte() && formCloture(compte(), (nb, accord) => {
+    message = `${nb} opération(s) pointée(s)` + (accord ? " – clôture en accord avec le relevé." : " – écart non résolu.");
+    majListe();
+  }) }, "Clôturer un mois");
   const info = h("p", { class: "note" });
-  const actionsVue = h("div", { class: "actions-vue" }, bRapide, bSelect);
+  const actionsVue = h("div", { class: "actions-vue" }, bRapide, bSelect, bCloture);
   const nbSel = h("span", { class: "nb" });
   const barreSel = h("div", { class: "barre-selection cache" }, nbSel,
     h("button", { type: "button", class: "sec", onclick: () => { affichees.forEach((o) => choisies.add(o.id)); majListe(); } }, "Tout"),
