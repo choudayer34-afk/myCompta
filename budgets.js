@@ -9,8 +9,8 @@ const moisTexte = (ym) => {
   const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   return t.charAt(0).toUpperCase() + t.slice(1);
 };
-const comptesSuivis = () => ((etat.reglages.find((r) => r.id === "budget") || {}).comptesIds || []).filter((i) => etat.comptes.some((c) => c.id === i));
-const etiquette = (id) => {
+export const comptesSuivis = () => ((etat.reglages.find((r) => r.id === "budget") || {}).comptesIds || []).filter((i) => etat.comptes.some((c) => c.id === i));
+export const etiquette = (id) => {
   if (!id) return "Sans catégorie";
   const c = categoriesTriees(true).find((x) => x.id === id);
   return c ? (c.icone ? c.icone + " " : "") + c.libelle : "Catégorie supprimée";
@@ -54,7 +54,7 @@ function formBudget(categorieId = null) {
   });
 }
 
-function formComptes() {
+export function formComptes() {
   const suivis = new Set(comptesSuivis());
   const actifs = etat.comptes.filter((c) => !c.archive);
   const cases = actifs.map((c) => {

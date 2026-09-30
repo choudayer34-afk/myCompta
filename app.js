@@ -11,6 +11,7 @@ import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
+import * as vueBilan from "./bilan.js";
 import { majAlertes } from "./alertes.js";
 
 const $ = (id) => document.getElementById(id);
@@ -19,6 +20,10 @@ const $ = (id) => document.getElementById(id);
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch((e) => console.error("SW", e));
 }
+
+// Hauteur réelle de l'en-tête (il peut passer sur deux lignes) : sert à coller la recherche sous lui
+const entete = document.querySelector("header");
+if (entete && "ResizeObserver" in window) new ResizeObserver(() => document.documentElement.style.setProperty("--hauteur-entete", entete.offsetHeight + "px")).observe(entete);
 
 // Indicateur de réseau
 function majReseau() {
@@ -86,6 +91,9 @@ function naviguer() {
   } else if (hash === "#/echeancier") {
     onglet = "echeancier";
     vue = vueEcheancier.monter(principal);
+  } else if (hash === "#/bilan") {
+    onglet = "bilan";
+    vue = vueBilan.monter(principal);
   } else if (hash === "#/budgets") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);

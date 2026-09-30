@@ -75,7 +75,7 @@ export function combo({ elements, valeur = "", texte = "", ajout = null, placeho
     // Liste masquée tant que la saisie est trop courte (noms d'opérations : 3 lettres)
     if (minCaracteres && normaliser(q).length < minCaracteres) { liste.replaceChildren(); liste.classList.add("cache"); return; }
     const tous = elements();
-    const filtres = filtrerContient(tous, q, (x) => x.libelle, 40, alpha);
+    const filtres = filtrerContient(tous, q, (x) => x.recherche || x.libelle, 40, alpha);
     const noeuds = filtres.map((e) => h("button", { type: "button", class: "choix", role: "option",
       onmousedown: (ev) => ev.preventDefault(), onclick: () => choisir(e) }, e.affichage || e.libelle));
     const r = resoudre();

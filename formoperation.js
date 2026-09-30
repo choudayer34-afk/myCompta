@@ -6,6 +6,7 @@ import { h, modale, champ, selecteur, combo, couleurAuHasard } from "./ui.js";
 import { nomsConnus, associationPour, cleNom } from "./noms.js";
 import { NATURES, STATUTS } from "./constantes.js";
 import { FREQUENCES, suivante } from "./planning.js";
+import { suggererCategories, mots } from "./suggestion.js";
 
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
 const NB_PUCES = 6;
@@ -73,7 +74,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
 
   // Catégorie : puces fréquentes (icône + nom), recherche « contient » triée par ordre alphabétique, ajout à la volée
   const iCat = combo({
-    elements: () => categoriesTriees(false, src.categorieId).map((c) => ({ id: c.id, libelle: c.libelle, affichage: (c.icone ? c.icone + " " : "") + c.libelle })),
+    elements: () => categoriesTriees(false, src.categorieId).map((c) => ({ id: c.id, libelle: c.libelle, recherche: c.libelle + " " + (c.memo || ""), affichage: h("span", {}, (c.icone ? c.icone + " " : "") + c.libelle, c.memo ? h("small", { class: "memo" }, " · " + c.memo) : null) })),
     valeur: src.categorieId || "", ajout: "Ajouter la catégorie", placeholder: "Autre catégorie : rechercher ou ajouter", alpha: true });
   const zonePuces = h("div", { class: "puces-cat" });
   const assocInitiale = associationPour(etat.nomsCategories, src.nom || "");
@@ -86,21 +87,39 @@ export function formOperation({ compteId, op = null, modele = null }) {
   function majPuces() {
     zonePuces.replaceChildren(...categoriesFrequentes(iCompte.value, etat.operations, etat.categories).map((c) =>
       h("button", { type: "button", class: "puce-cat" + (iCat.id() === c.id ? " actif" : ""), "aria-pressed": iCat.id() === c.id ? "true" : "false",
-        onclick: () => { iCat.definir(iCat.id() === c.id ? null : c.id); ouvertCat = false; majResumeCat(); } }, (c.icone ? c.icone + " " : "") + c.nom)));
+        title: c.memo || null, onclick: () => { iCat.definir(iCat.id() === c.id ? null : c.id); ouvertCat = false; majResumeCat(); } }, (c.icone ? c.icone + " " : "") + c.nom)));
   }
   // Catégorie : une seule ligne discrète ; le détail (puces, recherche, association) s'ouvre au toucher
   const zoneCat = h("div", { class: "zone-cat cache" }, zonePuces, iCat.element, cAssoc);
   const bCat = h("button", { type: "button", class: "cat-resume", "aria-expanded": "false", onclick: () => { ouvertCat = !ouvertCat; majResumeCat(); } });
   let ouvertCat = false;
+  // Aide au choix : aide-mémoire de la catégorie, suggestions d'après le nom, marqueur « à classer »
+  let aClasser = !!src.aClasser && !src.categorieId;
+  const zoneAide = h("div", { class: "aide-cat" });
+  function majAide() {
+    const id = iCat.id();
+    const c = id && etat.categories.find((x) => x.id === id);
+    const noeuds = [];
+    if (c && c.memo) noeuds.push(h("small", { class: "memo-cat" }, "Aide-mémoire : " + c.memo));
+    if (!id && !iCat.texte() && mots(iNom.value).length) {
+      const sugg = suggererCategories(iNom.value, etat.operations, etat.categories).map((s) => etat.categories.find((x) => x.id === s.categorieId)).filter(Boolean);
+      if (sugg.length) noeuds.push(h("div", { class: "suggestions" }, h("small", {}, "Suggestions :"),
+        ...sugg.map((x) => h("button", { type: "button", class: "puce-cat", title: x.memo || null, onclick: () => { iCat.definir(x.id); ouvertCat = false; majResumeCat(); } }, (x.icone ? x.icone + " " : "") + x.nom))));
+    }
+    if (!id) noeuds.push(h("button", { type: "button", class: "puce-cat" + (aClasser ? " actif" : ""), "aria-pressed": aClasser ? "true" : "false",
+      onclick: () => { aClasser = !aClasser; majAide(); majResumeCat(); } }, "🤔 À classer plus tard"));
+    zoneAide.replaceChildren(...noeuds);
+  }
   function majResumeCat() {
     const r = iCat.resoudre();
     const c = r.id && etat.categories.find((x) => x.id === r.id);
-    const texte = c ? (c.icone ? c.icone + " " : "") + categoriesTriees(true).find((x) => x.id === c.id).libelle : r.nouveau ? "Nouvelle : " + r.nouveau : "aucune";
+    const texte = c ? (c.icone ? c.icone + " " : "") + categoriesTriees(true).find((x) => x.id === c.id).libelle : r.nouveau ? "Nouvelle : " + r.nouveau : aClasser ? "À classer plus tard" : "aucune";
     bCat.replaceChildren(h("span", { class: "cat-lib" }, "Catégorie"), h("span", { class: "cat-val" }, texte), h("span", { class: "cat-fleche" }, ouvertCat ? "▴" : "▾"));
     bCat.setAttribute("aria-expanded", ouvertCat ? "true" : "false");
     zoneCat.classList.toggle("cache", !ouvertCat);
+    majAide();
   }
-  const cCat = h("div", { class: "champ cat-compacte" }, bCat, zoneCat);
+  const cCat = h("div", { class: "champ cat-compacte" }, bCat, zoneAide, zoneCat);
 
   // Fréquence (création seulement) : répète l'opération
   const iFreq = selecteur([["", "Aucune (opération unique)"], ...FREQUENCES], "");
@@ -159,7 +178,8 @@ export function formOperation({ compteId, op = null, modele = null }) {
     majAssoc(); majPuces(); majResumeCat();
   }
   cNom.surChangement(appliquerAssociation);
-  iCat.surChangement(() => { if (!enCours) { categorieTouchee = true; categorieAuto = false; } majAssoc(); majPuces(); majResumeCat(); });
+  cNom.surChangement(majAide);
+  iCat.surChangement(() => { if (iCat.id() || iCat.texte()) aClasser = false; if (!enCours) { categorieTouchee = true; categorieAuto = false; } majAssoc(); majPuces(); majResumeCat(); });
   iAssoc.addEventListener("change", () => { assocModifiee = true; });
   iType.addEventListener("change", basculer);
   iNature.addEventListener("change", basculer);
@@ -247,7 +267,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
       const cle = cleNom(commun.nom);
       if (categorieId && iAssoc.checked) l.set("nomsCategories", cle, { nom: commun.nom, categorieId });
       else if (assocModifiee && !iAssoc.checked) l.del("nomsCategories", cle);
-      const donnees = { ...commun, compteId: iCompte.value, montant: sens * m, nature: iNature.value, categorieId, virementId: null, ...(planifieeId ? { planifieeId } : {}) };
+      const donnees = { ...commun, compteId: iCompte.value, montant: sens * m, nature: iNature.value, categorieId, aClasser: !categorieId && aClasser, virementId: null, ...(planifieeId ? { planifieeId } : {}) };
       if (!op) donnees.cree = serverTimestamp();
       l.set("operations", id, donnees);
       if (planifieeId) planif(categorieId);

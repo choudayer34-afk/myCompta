@@ -92,7 +92,8 @@ export function modificationsMasse(operations, champ, valeur, jour) {
     if (champ === "export") d = { aExporter: valeur === true || valeur === "1" };
     else if (champ === "statut") d = { statut: valeur, datePointage: valeur === "pointe" ? (o.datePointage || jour) : null };
     else if (o.virementId) { ignorees++; continue; }
-    else if (champ === "categorie") d = { categorieId: valeur || null };
+    else if (champ === "categorie") d = { categorieId: valeur || null, aClasser: false };
+    else if (champ === "aclasser") d = { aClasser: valeur === true || valeur === "1" };
     else if (champ === "nature") d = { nature: valeur };
     else if (champ === "compte") { if (o.compteId === valeur) { ignorees++; continue; } d = { compteId: valeur }; }
     else continue;

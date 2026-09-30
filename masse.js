@@ -4,7 +4,7 @@ import { NATURES, STATUTS } from "./constantes.js";
 import { aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 
-const CHAMPS = [["categorie", "Catégorie"], ["export", "Inclure dans l'export"], ["statut", "Statut"], ["nature", "Nature"], ["compte", "Compte (déplacer)"]];
+const CHAMPS = [["categorie", "Catégorie"], ["export", "Inclure dans l'export"], ["statut", "Statut"], ["nature", "Nature"], ["aclasser", "À classer (marqueur)"], ["compte", "Compte (déplacer)"]];
 
 // Fenêtre de modification en masse. `apres(nbModifiees, nbIgnorees)` est appelée après l'enregistrement.
 export function formMasse(operations, apres) {
@@ -13,6 +13,7 @@ export function formMasse(operations, apres) {
   const controles = {
     categorie: selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], ""),
     export: selecteur([["1", "Oui"], ["0", "Non"]], "1"),
+    aclasser: selecteur([["1", "À classer"], ["0", "Retirer le marqueur"]], "1"),
     statut: selecteur(STATUTS, "pointe"),
     nature: selecteur(NATURES, "autre"),
     compte: selecteur(comptes.map((c) => [c.id, c.nom]), operations[0] && operations[0].compteId)
@@ -24,7 +25,7 @@ export function formMasse(operations, apres) {
 
   function montrer() {
     zone.replaceChildren(champ("Nouvelle valeur", controles[iChamp.value]));
-    const limite = ["categorie", "nature", "compte"].includes(iChamp.value) && nbVirements;
+    const limite = ["categorie", "nature", "compte", "aclasser"].includes(iChamp.value) && nbVirements;
     note.textContent = limite ? `${nbVirements} virement(s) lié(s) ne seront pas modifiés pour ce champ.` : "";
     erreur.textContent = "";
   }

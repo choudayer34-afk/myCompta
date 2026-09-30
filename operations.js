@@ -20,6 +20,7 @@ export function monter(conteneur, { id }) {
   conteneur.classList.remove("mode-selection");
   let recherche = "";
   let limite = PAGE;
+  let fExport = "", fCat = "";   // filtres : export (« oui » / « non »), catégorie (« avec » / « sans » / « aclasser »)
   let nonPointees = false;   // filtre « à pointer » (statut en cours)
   let affichees = [];        // opérations actuellement listées (après filtres)
   let mode = false;          // mode sélection
@@ -43,7 +44,12 @@ export function monter(conteneur, { id }) {
     ecrireEnParallele(cibles.map((o) => ["operations", o.id, { statut: "pointe", datePointage: date }])).catch((e) => { console.error(e); alert("Échec du pointage : " + e.message); });
   } }, "Tout pointer");
   const rapide = h("div", { class: "rapide cache" });
-  const barre = h("div", { class: "barre" }, iRecherche, bFiltre, bTout);
+  const sExport = selecteur([["", "Export : tous"], ["oui", "À exporter"], ["non", "Non exporté"]], "", { "aria-label": "Filtre export" });
+  const sCat = selecteur([["", "Catégorie : toutes"], ["avec", "Avec catégorie"], ["sans", "Sans catégorie"], ["aclasser", "🤔 À classer"]], "", { "aria-label": "Filtre catégorie" });
+  sExport.addEventListener("change", () => { fExport = sExport.value; limite = PAGE; majListe(); });
+  sCat.addEventListener("change", () => { fCat = sCat.value; limite = PAGE; majListe(); });
+  const filtres = h("div", { class: "barre filtres" }, sExport, sCat);
+  const barre = h("div", { class: "barre barre-recherche" }, iRecherche, bFiltre, bTout);
   const liste = h("div", { class: "liste" });
   const bSelect = h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Sélectionner");
   const bRapide = h("button", { type: "button", class: "sec", onclick: () => compte() && formRapide({ compteId: id }) }, "Tableau rapide");
@@ -55,7 +61,7 @@ export function monter(conteneur, { id }) {
   const actionsVue = h("div", { class: "actions-vue" }, bRapide, bSelect, bCloture);
   const nbSel = h("span", { class: "nb" });
   const barreSel = h("div", { class: "barre-selection cache" }, nbSel,
-    h("button", { type: "button", class: "sec", onclick: () => { affichees.forEach((o) => choisies.add(o.id)); majListe(); } }, "Tout"),
+    h("button", { type: "button", class: "sec", onclick: () => { affichees.forEach((o) => choisies.add(o.id)); majListe(); } }, "Tout (affichées)"),
     h("button", { type: "button", class: "sec", onclick: () => { choisies.clear(); majListe(); } }, "Aucune"),
     h("button", { type: "button", onclick: () => {
       const ops = etat.operations.filter((o) => choisies.has(o.id));
@@ -67,7 +73,7 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, actionsVue, info, barre, liste, ajout, barreSel);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
@@ -106,6 +112,11 @@ export function monter(conteneur, { id }) {
     const cats = new Map(etat.categories.map((x) => [x.id, x]));
     const nomsCat = new Map(etat.categories.map((x) => [x.id, x.nom]));
     const q = sansAccent(recherche).trim();
+    if (fExport) lignes = lignes.filter((o) => (fExport === "oui") === !!o.aExporter);
+    const estVirement = (o) => o.virementId || o.nature === "virement";
+    if (fCat === "avec") lignes = lignes.filter((o) => o.categorieId);
+    else if (fCat === "sans") lignes = lignes.filter((o) => !o.categorieId && !estVirement(o));
+    else if (fCat === "aclasser") lignes = lignes.filter((o) => o.aClasser && !o.categorieId);
     if (q) lignes = lignes.filter((o) => correspond(o, q, nomsCat));
     affichees = lignes;
     // Ne garder que les opérations encore existantes dans la sélection
@@ -115,7 +126,8 @@ export function monter(conteneur, { id }) {
     bSelect.textContent = mode ? "Terminer" : "Sélectionner";
     barreSel.classList.toggle("cache", !mode);
     ajout.classList.toggle("cache", mode);
-    nbSel.textContent = `${choisies.size} sélectionnée(s)`;
+    nbSel.textContent = `${choisies.size} sélectionnée(s) / ${lignes.length} affichée(s)`;
+    sExport.classList.toggle("filtre-actif", !!fExport); sCat.classList.toggle("filtre-actif", !!fCat);
     info.textContent = message;
     bTout.classList.toggle("cache", !(nonPointees && lignes.some((x) => x.statut === "encours")));
     if (!lignes.length) { liste.replaceChildren(h("p", { class: "vide" }, q ? "Aucun résultat." : nonPointees ? "Aucune opération à pointer." : "Aucune opération. Touchez + pour en ajouter.")); return; }
@@ -143,7 +155,7 @@ export function monter(conteneur, { id }) {
         } },
           h("div", { class: "gauche" },
             h("strong", {}, o.nom),
-            h("small", {}, `${dateFr(o.date)}${cat ? " · " + (cat.icone ? cat.icone + " " : "") + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}`)),
+            h("small", {}, `${dateFr(o.date)}${cat ? " · " + (cat.icone ? cat.icone + " " : "") + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}${o.aClasser && !cat ? " · 🤔 à classer" : ""}`)),
           h("div", { class: "droite" },
             h("small", {}, euros(o.solde)),
             h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
