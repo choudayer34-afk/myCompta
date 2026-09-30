@@ -12,6 +12,7 @@ import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
 import { majAlertes } from "./alertes.js";
+import { VERSION } from "./version.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,6 +24,35 @@ if ("serviceWorker" in navigator) {
 // Hauteur réelle de l'en-tête (il peut passer sur deux lignes) : sert à coller la recherche sous lui
 const entete = document.querySelector("header");
 if (entete && "ResizeObserver" in window) new ResizeObserver(() => document.documentElement.style.setProperty("--hauteur-entete", entete.offsetHeight + "px")).observe(entete);
+
+// Version : celle de la page, comparée à celle du service worker actif (écart = mise à jour en attente).
+const boutonVersion = $("version");
+function versionActive() {
+  return new Promise((resolve) => {
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw) return resolve(null);
+    const canal = new MessageChannel();
+    const fin = setTimeout(() => resolve(null), 1500);
+    canal.port1.onmessage = (e) => { clearTimeout(fin); resolve(e.data); };
+    sw.postMessage("version", [canal.port2]);
+  });
+}
+async function majVersion() {
+  const active = await versionActive();
+  const ecart = active && active !== VERSION;
+  boutonVersion.textContent = VERSION + (ecart ? " ⟳" : "");
+  boutonVersion.title = ecart ? `Mise à jour disponible (${active}) : toucher pour recharger` : "Toucher pour rechercher une mise à jour";
+}
+boutonVersion.addEventListener("click", async () => {
+  boutonVersion.textContent = VERSION + " …";
+  try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (_) {}
+  const active = await versionActive();
+  if (active && active !== VERSION) { location.reload(); return; }
+  boutonVersion.textContent = VERSION + " ✓";
+  setTimeout(majVersion, 2500);
+});
+majVersion();
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("controllerchange", () => setTimeout(majVersion, 300));
 
 // Indicateur de réseau
 function majReseau() {

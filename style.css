@@ -311,3 +311,34 @@ small.memo { color:var(--discret); font-size:.78rem; }
 .val-bilan small { color:var(--discret); }
 .ligne-sous { display:flex; justify-content:space-between; gap:8px; padding:6px 4px 6px 28px; font-size:.88rem; color:var(--discret); border-bottom:1px solid var(--bord); }
 nav a { font-size:1.3rem; }
+
+/* Détail d'une catégorie : recherche et tri collés sous l'en-tête */
+.outils-detail { position:sticky; top:var(--hauteur-entete, 56px); z-index:4; background:var(--fond); padding:6px 0; margin:0 0 6px; flex-wrap:wrap; }
+.outils-detail .recherche { flex:1 1 100%; }
+.outils-detail select { flex:1; min-width:0; margin:0; padding:6px 8px; font-size:.85rem; }
+
+/* Numéro de version */
+.version { background:transparent; border:0; color:inherit; opacity:.75; font-size:.7rem; font-weight:400; padding:2px 4px; margin-left:4px; cursor:pointer; vertical-align:middle; }
+
+/* Évolution et comparaison */
+.modes-bilan button { padding:6px 4px; font-size:.85rem; }
+.histo { display:block; width:100%; margin:8px 0 2px; }
+.histo .axe { stroke:var(--bord); stroke-width:1; }
+.histo .barre-evo { fill:var(--s0); }
+.histo .barre-evo.actif { stroke:var(--texte); stroke-width:2; }
+.histo .lib-evo { fill:var(--discret); font-size:9px; }
+.histo .lib-evo.an { font-weight:700; }
+.histo .val-evo { fill:var(--texte); font-size:10px; font-weight:700; }
+.histo .moyenne-evo { stroke:var(--discret); stroke-width:1; stroke-dasharray:4 3; }
+.histo rect[tabindex] { outline:none; cursor:pointer; }
+.ligne-hors.choisi { background:var(--fond); border-color:var(--accent); }
+.val-bilan small.neg { color:var(--neg); } .val-bilan small.pos { color:var(--pos); }
+.ligne-compar { margin-bottom:8px; padding:12px 16px; }
+.ligne-compar .montants-budget.neg { color:var(--neg); } .ligne-compar .montants-budget.pos { color:var(--pos); }
+.paire { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.paire .tag { width:14px; font-size:.75rem; color:var(--discret); font-weight:700; }
+.paire .piste { flex:1; height:8px; background:var(--bord); border-radius:4px; overflow:hidden; }
+.paire .piste span { display:block; height:100%; border-radius:4px; }
+.paire .piste .a { background:var(--sx); } .paire .piste .b { background:var(--s0); }
+.paire small { min-width:84px; text-align:right; color:var(--texte); }
+.reste-budget.neg { color:var(--neg); } .reste-budget.pos { color:var(--pos); }

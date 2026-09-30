@@ -1,10 +1,13 @@
 import { etat, pret, lot, categoriesTriees } from "./store.js";
 import { formOperation } from "./formoperation.js";
 import { formMasse } from "./masse.js";
-import { euros, versCentimes, versSaisie, aujourdhui, dateFr } from "./format.js";
+import { euros, versCentimes, versSaisie, aujourdhui, dateFr, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { calculerBudget, detailCategorie, moisDecale } from "./budget.js";
 import * as vueRepartition from "./bilan.js";
+import * as vueEvolution from "./evolution.js";
+import * as vueComparaison from "./comparaison.js";
+const VUES = { repartition: vueRepartition, evolution: vueEvolution, comparaison: vueComparaison };
 
 const moisTexte = (ym) => {
   const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
@@ -91,14 +94,22 @@ export function monter(conteneur) {
     titre,
     h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); choisies.clear(); maj(); } }, "›"));
   const enTete = h("div", { class: "entete-vue" });
-  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"]].map(([v, l]) =>
+  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"], ["evolution", "Évolution"], ["comparaison", "Comparer"]].map(([v, l]) =>
     h("button", { type: "button", class: "sec", "data-vue": v, onclick: () => { vueCourante = v; repartition = null; maj(); } }, l)));
   const corps = h("div", {});
   const barreSel = h("div", { class: "barre-selection cache" });
-  conteneur.replaceChildren(enTete, onglets, nav, corps, barreSel);
+  // Recherche et tri de la liste d'opérations du détail (barre fixe : elle n'est pas reconstruite à chaque frappe)
+  let tri = "date-desc", recherche = "";
+  const iRecherche = h("input", { type: "search", placeholder: "Filtrer par mot (nom, commentaire, compte…)", class: "recherche", autocomplete: "off" });
+  const sTri = selecteur([["date-desc", "Date : récentes d'abord"], ["date-asc", "Date : anciennes d'abord"], ["nom", "Nom : A → Z"], ["montant", "Montant : plus gros d'abord"]], tri, { "aria-label": "Tri" });
+  iRecherche.addEventListener("input", () => { recherche = iRecherche.value; majDetail(); });
+  sTri.addEventListener("change", () => { tri = sTri.value; majDetail(); });
+  const outils = h("div", { class: "barre outils-detail cache" }, iRecherche, sTri);
+  conteneur.replaceChildren(enTete, onglets, nav, outils, corps, barreSel);
 
-  const ouvrir = (id) => { detail = { id }; choisies.clear(); message = ""; maj(); window.scrollTo(0, 0); };
-  const retour = () => { detail = null; choisies.clear(); message = ""; maj(); };
+  const reinitOutils = () => { recherche = ""; tri = "date-desc"; iRecherche.value = ""; sTri.value = tri; };
+  const ouvrir = (id) => { reinitOutils(); detail = { id }; choisies.clear(); message = ""; maj(); window.scrollTo(0, 0); };
+  const retour = () => { reinitOutils(); detail = null; choisies.clear(); message = ""; maj(); };
   const params = () => ({ categories: etat.categories, operations: etat.operations, planifiees: etat.planifiees, comptes: etat.comptes,
     budgets: etat.budgets, comptesIds: comptesSuivis(), mois, aujourdhui: aujourdhui() });
 
@@ -126,13 +137,20 @@ export function monter(conteneur) {
       for (const x of sous) noeuds.push(h("button", { type: "button", class: "carte ligne-hors", onclick: () => ouvrir(x.categorieId) }, h("span", {}, etiquette(x.categorieId)), h("strong", {}, euros(x.realise))));
     }
     // Opérations
+    const comptes = new Map(etat.comptes.map((c) => [c.id, c.nom]));
+    const q = sansAccent(recherche).trim();
+    let ops = d.ops;
+    if (q) ops = ops.filter((o) => { const cible = sansAccent([o.nom, o.commentaire, o.info, comptes.get(o.compteId), euros(o.montant)].join(" ")); return q.split(/\s+/).every((m) => cible.includes(m)); });
+    ops = [...ops].sort((a, b) => tri === "date-asc" ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+      : tri === "nom" ? (sansAccent(a.nom) < sansAccent(b.nom) ? -1 : sansAccent(a.nom) > sansAccent(b.nom) ? 1 : (a.date < b.date ? 1 : -1))
+      : tri === "montant" ? (a.montant - b.montant) : (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    outils.classList.remove("cache");
     const existantes = new Set(d.ops.map((o) => o.id));
     for (const k of [...choisies]) if (!existantes.has(k)) choisies.delete(k);
-    noeuds.push(h("h3", { class: "groupe" }, `Opérations (${d.ops.length})`));
+    noeuds.push(h("h3", { class: "groupe" }, ops.length === d.ops.length ? `Opérations (${d.ops.length})` : `Opérations (${ops.length} sur ${d.ops.length})`));
     if (message) noeuds.push(h("p", { class: "note" }, message));
-    if (!d.ops.length) noeuds.push(h("p", { class: "vide" }, id ? "Aucune opération ce mois-ci." : "Toutes les opérations du mois sont catégorisées."));
-    const comptes = new Map(etat.comptes.map((c) => [c.id, c.nom]));
-    for (const o of d.ops) {
+    if (!ops.length) noeuds.push(h("p", { class: "vide" }, d.ops.length ? "Aucune opération ne correspond au filtre." : id ? "Aucune opération ce mois-ci." : "Toutes les opérations du mois sont catégorisées."));
+    for (const o of ops) {
       const coche = choisies.has(o.id);
       noeuds.push(h("div", { class: "ligne avec-pointage" + (coche ? " choisie" : "") },
         h("button", { type: "button", class: "pointer", "aria-label": coche ? "Désélectionner" : "Sélectionner",
@@ -144,8 +162,8 @@ export function monter(conteneur) {
     corps.replaceChildren(...noeuds);
     // Barre de sélection : catégoriser en masse
     barreSel.classList.toggle("cache", !d.ops.length);
-    barreSel.replaceChildren(h("span", { class: "nb" }, `${choisies.size} sélectionnée(s)`),
-      h("button", { type: "button", class: "sec", onclick: () => { d.ops.forEach((o) => choisies.add(o.id)); majDetail(); } }, "Tout"),
+    barreSel.replaceChildren(h("span", { class: "nb", title: "sélectionnées / affichées" }, `${choisies.size} / ${ops.length} cochée(s)`),
+      h("button", { type: "button", class: "sec", onclick: () => { ops.forEach((o) => choisies.add(o.id)); majDetail(); } }, "Tout (affichées)"),
       h("button", { type: "button", class: "sec", onclick: () => { choisies.clear(); majDetail(); } }, "Aucune"),
       h("button", { type: "button", disabled: choisies.size ? null : true, onclick: () => {
         const ops = etat.operations.filter((o) => choisies.has(o.id));
@@ -193,8 +211,9 @@ export function monter(conteneur) {
 
   function maj() {
     titre.textContent = moisTexte(mois);
-    const repart = vueCourante === "repartition" && !detail;
+    const repart = vueCourante !== "plafonds" && !detail;
     onglets.classList.toggle("cache", !!detail);
+    if (!detail) outils.classList.add("cache");
     onglets.querySelectorAll("button").forEach((b) => b.classList.toggle("actif-filtre", b.dataset.vue === vueCourante));
     nav.classList.toggle("cache", repart);
     if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
@@ -203,7 +222,7 @@ export function monter(conteneur) {
       barreSel.classList.add("cache");
       enTete.replaceChildren(h("strong", { class: "titre-vue" }, "Budgets"),
         h("button", { type: "button", class: "sec", onclick: () => formComptes() }, "Comptes suivis"));
-      if (!repartition) { const zone = h("div", {}); corps.replaceChildren(zone); repartition = vueRepartition.monter(zone, { mois }); } else repartition.maj();
+      if (!repartition) { const zone = h("div", {}); corps.replaceChildren(zone); repartition = VUES[vueCourante].monter(zone, { mois }); } else repartition.maj();
     } else { repartition = null; majListe(); }
   }
   maj();

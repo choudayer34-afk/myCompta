@@ -1,4 +1,4 @@
-const VERSION = "v29";
+const VERSION = "v32";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
@@ -32,6 +32,10 @@ const COQUILLE = [
   "./budget.js",
   "./budgets.js",
   "./alertes.js",
+  "./version.js",
+  "./evolutioncalc.js",
+  "./evolution.js",
+  "./comparaison.js",
   "./suggestion.js",
   "./bilancalc.js",
   "./bilan.js",
@@ -71,6 +75,11 @@ self.addEventListener("activate", (e) => {
       .then((cles) => Promise.all(cles.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Permet à la page de connaître la version réellement active
+self.addEventListener("message", (e) => {
+  if (e.data === "version" && e.ports && e.ports[0]) e.ports[0].postMessage(VERSION);
 });
 
 self.addEventListener("fetch", (e) => {
