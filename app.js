@@ -1,7 +1,9 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { auth } from "./firebase.js";
-import { demarrer, arreter, abonner, donneesFiables } from "./store.js";
+import { demarrer, arreter, abonner, donneesFiables, pret, compteDepenseParDefaut } from "./store.js";
+import { scannerTicket } from "./scanner.js";
+import { dicterDepense } from "./voix.js";
 import * as vueComptes from "./comptes.js";
 import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
@@ -38,6 +40,27 @@ $("form-connexion").addEventListener("submit", async (e) => {
   }
 });
 $("btn-sortie").addEventListener("click", () => signOut(auth));
+
+// Ajout rapide d'une dépense (compte courant par défaut) et lecture d'un ticket, depuis n'importe quel écran
+function nouvelleDepense(modele = null, compteId = null) {
+  if (!pret()) { alert("Les données se chargent, réessayez dans un instant."); return; }
+  const c = compteDepenseParDefaut();
+  if (!c && !compteId) { alert("Créez d'abord un compte."); return; }
+  vueOperations.formOperation({ compteId: compteId || c.id, modele });
+}
+$("btn-voix").addEventListener("click", () => {
+  if (!pret() || !compteDepenseParDefaut()) { alert("Créez d'abord un compte."); return; }
+  dicterDepense((r) => nouvelleDepense({
+    nom: r.nom || "", montant: r.montant ? r.sens * r.montant : null, date: r.date, sens: r.sens, statut: "encours"
+  }, r.compteId));
+});
+$("btn-depense").addEventListener("click", () => nouvelleDepense());
+$("btn-ticket").addEventListener("click", () => {
+  if (!pret() || !compteDepenseParDefaut()) { alert("Créez d'abord un compte."); return; }
+  scannerTicket((r) => nouvelleDepense({
+    nom: r.nom || "", montant: r.montant ? -r.montant : null, date: r.date, commentaire: r.commentaire, statut: "encours", sens: -1
+  }));
+});
 
 // Navigation par adresse (#/comptes, #/compte/ID, #/categories)
 let vue = null;
@@ -83,6 +106,9 @@ onAuthStateChanged(auth, (user) => {
   $("ecran-connexion").classList.toggle("cache", connecte);
   $("ecran-app").classList.toggle("cache", !connecte);
   $("btn-sortie").classList.toggle("cache", !connecte);
+  $("btn-depense").classList.toggle("cache", !connecte);
+  $("btn-ticket").classList.toggle("cache", !connecte);
+  $("btn-voix").classList.toggle("cache", !connecte);
   $("nav").classList.toggle("cache", !connecte);
   if (user) {
     demarrer(user.uid);

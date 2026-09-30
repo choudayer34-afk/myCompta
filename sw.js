@@ -1,4 +1,4 @@
-const VERSION = "v19";
+const VERSION = "v21";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
@@ -22,10 +22,13 @@ const COQUILLE = [
   "./constantes.js",
   "./saisie.js",
   "./masse.js",
-  "./tableau.js",
   "./rapide.js",
   "./noms.js",
   "./formoperation.js",
+  "./ticket.js",
+  "./scanner.js",
+  "./phrase.js",
+  "./voix.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
@@ -66,7 +69,8 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
 
   // Bibliothèque Firebase : cache d'abord (versionnée dans l'adresse)
-  if (url.hostname === "www.gstatic.com") {
+  // (la bibliothèque de lecture des tickets, sur jsDelivr, est traitée de la même façon : utilisable ensuite hors connexion)
+  if (url.hostname === "www.gstatic.com" || url.hostname === "cdn.jsdelivr.net") {
     e.respondWith(
       caches.match(req).then((r) => r || fetch(req).then((rep) => {
         const copie = rep.clone();

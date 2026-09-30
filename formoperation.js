@@ -86,9 +86,21 @@ export function formOperation({ compteId, op = null, modele = null }) {
   function majPuces() {
     zonePuces.replaceChildren(...categoriesFrequentes(iCompte.value, etat.operations, etat.categories).map((c) =>
       h("button", { type: "button", class: "puce-cat" + (iCat.id() === c.id ? " actif" : ""), "aria-pressed": iCat.id() === c.id ? "true" : "false",
-        onclick: () => iCat.definir(iCat.id() === c.id ? null : c.id) }, (c.icone ? c.icone + " " : "") + c.nom)));
+        onclick: () => { iCat.definir(iCat.id() === c.id ? null : c.id); ouvertCat = false; majResumeCat(); } }, (c.icone ? c.icone + " " : "") + c.nom)));
   }
-  const cCat = h("div", { class: "champ" }, h("label", {}, "Catégorie"), zonePuces, iCat.element, cAssoc);
+  // Catégorie : une seule ligne discrète ; le détail (puces, recherche, association) s'ouvre au toucher
+  const zoneCat = h("div", { class: "zone-cat cache" }, zonePuces, iCat.element, cAssoc);
+  const bCat = h("button", { type: "button", class: "cat-resume", "aria-expanded": "false", onclick: () => { ouvertCat = !ouvertCat; majResumeCat(); } });
+  let ouvertCat = false;
+  function majResumeCat() {
+    const r = iCat.resoudre();
+    const c = r.id && etat.categories.find((x) => x.id === r.id);
+    const texte = c ? (c.icone ? c.icone + " " : "") + categoriesTriees(true).find((x) => x.id === c.id).libelle : r.nouveau ? "Nouvelle : " + r.nouveau : "aucune";
+    bCat.replaceChildren(h("span", { class: "cat-lib" }, "Catégorie"), h("span", { class: "cat-val" }, texte), h("span", { class: "cat-fleche" }, ouvertCat ? "▴" : "▾"));
+    bCat.setAttribute("aria-expanded", ouvertCat ? "true" : "false");
+    zoneCat.classList.toggle("cache", !ouvertCat);
+  }
+  const cCat = h("div", { class: "champ cat-compacte" }, bCat, zoneCat);
 
   // Fréquence (création seulement) : répète l'opération
   const iFreq = selecteur([["", "Aucune (opération unique)"], ...FREQUENCES], "");
@@ -128,7 +140,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
     cInfo.hidden = virement || nouveauVirement || iNature.value !== "cheque";
     cCat.hidden = virement || nouveauVirement;
     cFreq.hidden = !!op;
-    sCat.hidden = cCat.hidden; sFreq.hidden = cFreq.hidden;
+    sFreq.hidden = cFreq.hidden;
     boutonsStatut.forEach((b) => { const on = b.dataset.v === statut; b.classList.toggle("actif", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
     cPointage.hidden = statut !== "pointe";
     majAssoc();
@@ -144,10 +156,10 @@ export function formOperation({ compteId, op = null, modele = null }) {
     if (cat && !categorieTouchee) { iCat.definir(cat.id); iAssoc.checked = true; categorieAuto = true; }
     else if (!cat && categorieAuto) { iCat.definirTexte(""); iAssoc.checked = false; categorieAuto = false; }
     enCours = false;
-    majAssoc(); majPuces();
+    majAssoc(); majPuces(); majResumeCat();
   }
   cNom.surChangement(appliquerAssociation);
-  iCat.surChangement(() => { if (!enCours) { categorieTouchee = true; categorieAuto = false; } majAssoc(); majPuces(); });
+  iCat.surChangement(() => { if (!enCours) { categorieTouchee = true; categorieAuto = false; } majAssoc(); majPuces(); majResumeCat(); });
   iAssoc.addEventListener("change", () => { assocModifiee = true; });
   iType.addEventListener("change", basculer);
   iNature.addEventListener("change", basculer);
@@ -174,18 +186,18 @@ export function formOperation({ compteId, op = null, modele = null }) {
   if (src.commentaire) plus.open = true;
 
   const section = (titre, ...contenu) => h("section", { class: "section" }, h("h3", { class: "section-titre" }, titre), ...contenu);
-  const sQui = section("Opération", cCompte, cType, cDest, champ("Nom", cNom.element), cExport);
-  const sCat = section("Catégorie", cCat);
+  const sQui = section("Opération", cCompte, cType, cDest, champ("Nom", cNom.element), cExport, cCat);
   const sMontant = section("Montant et date", cMontant, h("div", { class: "deux" }, champ("Date", iDate), cNature), cInfo);
   const sStatut = section("Statut", cStatut, cPointage);
   const sFreq = section("Répétition", cFreq);
   const sPlus = section("Autres informations", plus);
   const { dialogue, formulaire } = modale(op ? "Opération" : "Nouvelle opération", [
-    sQui, sCat, sMontant, sStatut, sFreq, sPlus, cLie, erreur, actions
+    sQui, sMontant, sStatut, sFreq, sPlus, cLie, erreur, actions
   ]);
   majSens();
   basculer();
   majPuces();
+  majResumeCat();
   if (!op && !src.categorieId) appliquerAssociation();
   if (saisieRapide) iMontant.focus(); else if (!op) iNom.focus();
 

@@ -102,6 +102,13 @@ export function comparerComptes(a, b) {
   return (a.nom || "").localeCompare(b.nom || "", "fr");
 }
 
+// Compte proposé par défaut pour une nouvelle dépense : le premier compte courant actif de la liste ordonnée,
+// à défaut le premier compte actif.
+export function compteDepenseParDefaut() {
+  const actifs = etat.comptes.filter((c) => !c.archive).sort(comparerComptes);
+  return actifs.find((c) => c.type === "courant") || actifs[0] || null;
+}
+
 export function libelleCategorie(c) {
   const p = c.parentId && etat.categories.find((x) => x.id === c.parentId);
   return p ? `${p.nom} › ${c.nom}` : c.nom;

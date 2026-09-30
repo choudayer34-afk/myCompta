@@ -173,3 +173,60 @@ details.plus summary { cursor:pointer; color:var(--accent); padding:6px 0; }
 .section .champ:last-child { margin-bottom:0; }
 .section details.plus { margin:0; }
 .barre-fixe { position:sticky; bottom:-16px; background:var(--carte); margin:0 -16px -16px; padding:10px 16px 16px; border-top:1px solid var(--bord); z-index:2; }
+
+/* Catégorie compacte */
+.cat-resume { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:var(--carte); color:var(--texte); border:1px solid var(--bord); padding:8px 12px; font-size:.95rem; }
+.cat-lib { color:var(--discret); font-size:.85rem; }
+.cat-val { flex:1; font-weight:600; }
+.cat-fleche { color:var(--discret); }
+.zone-cat { margin-top:8px; }
+.cat-compacte { margin-top:10px; margin-bottom:0; }
+
+/* Scanner de ticket */
+.scan-cadre { background:#000; border-radius:10px; overflow:hidden; min-height:180px; }
+.scan-video { display:block; width:100%; max-height:55vh; object-fit:cover; }
+header > div { display:flex; align-items:center; gap:6px; }
+header button.sec { padding:5px 9px; font-size:.85rem; }
+
+/* Tableau rapide : cartes de lignes */
+.cartes-lignes { display:flex; flex-direction:column; gap:10px; }
+.carte-ligne { background:var(--carte); border:1px solid var(--bord); border-left:4px solid var(--accent); border-radius:10px; padding:10px; }
+.carte-ligne.invalide { border-left-color:var(--neg); }
+.carte-ligne.doublon { border-left-color:var(--alerte); }
+.carte-ligne .rang { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.carte-ligne .rang.pied { margin-bottom:0; flex-wrap:wrap; }
+.carte-ligne .rang > .combo { flex:1; min-width:0; }
+.section .carte-ligne input:not([type=checkbox]) { background:var(--fond); }
+.champ-date { position:relative; display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+.champ-date input[type=text] { flex:1; min-width:0; }
+.cal-bouton { position:relative; flex-shrink:0; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--bord); border-radius:8px; background:var(--carte); font-size:1.2rem; overflow:hidden; }
+.cal-bouton.inactif { opacity:.4; }
+.cal-input { position:absolute; inset:0; width:100%; height:100%; opacity:0; padding:0; border:0; cursor:pointer; font-size:16px; }
+.montant-zone { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+.montant-zone .gros-montant { font-size:1.2rem !important; min-width:0; text-align:right; }
+.sens.petit { width:40px; height:40px; font-size:1.4rem; }
+.info-ligne { flex:1; font-size:.8rem; color:var(--discret); min-width:0; }
+.case.mini { margin:0; font-size:.85rem; gap:6px; }
+.mini-bouton { padding:6px 10px; font-size:.85rem; background:transparent; color:var(--accent); border:1px solid var(--bord); }
+.recap { margin:0 0 6px; font-size:.9rem; font-weight:600; }
+.carte-ligne .rang.haut { flex-wrap:wrap; }
+.carte-ligne .champ-date { flex:1 1 150px; }
+.carte-ligne .montant-zone { flex:1 1 150px; }
+.carte-ligne .info-ligne { flex:none; min-height:1.1em; margin:-2px 0 8px; }
+.carte-ligne .espace { flex:1; }
+header { padding-left:12px; padding-right:12px; }
+header h1 { font-size:1rem; }
+header .etat { white-space:nowrap; font-size:.7rem; margin-right:0; }
+header button { white-space:nowrap; }
+header button.sec { padding:5px 8px; font-size:.8rem; }
+header { gap:6px; }
+header > div { flex-wrap:wrap; justify-content:flex-end; min-width:0; }
+
+/* Dépense à l'oral */
+.dictee { font-size:1.1rem; }
+.apercu-voix { margin:10px 0; border:1px solid var(--bord); border-radius:10px; overflow:hidden; }
+.ligne-voix { display:flex; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--bord); }
+.ligne-voix:last-child { border-bottom:0; }
+.ligne-voix .lib { color:var(--discret); }
+.ligne-voix .val { font-weight:600; text-align:right; }
+.ligne-voix.manque .val { color:var(--alerte); font-weight:400; }
