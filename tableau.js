@@ -21,7 +21,7 @@ export function formTableau({ compteId }) {
   const iSens = selecteur([["-1", "Dépense"], ["1", "Recette"]], "-1");
   const iCompte = selecteur(comptes.map((c) => [c.id, c.nom]), compteId);
   const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], "");
-  const iNature = selecteur(NATURES, "autre");
+  const iNature = selecteur(NATURES, "carte");
   const iStatut = selecteur(STATUTS.filter((s) => s[0] !== "annule"), "encours");
   const iExport = h("input", { type: "checkbox", checked: true });
   const iDoublons = h("input", { type: "checkbox", checked: true });

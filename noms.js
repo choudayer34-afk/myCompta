@@ -27,8 +27,9 @@ export function nomsConnus(operations, planifiees = []) {
     if (!g) groupes.set(cle, { nom: String(nom).trim(), nb: 1, date: date || "" });
     else { g.nb++; if ((date || "") >= g.date) { g.nom = String(nom).trim(); g.date = date || ""; } }
   };
-  for (const o of operations) if (!o.virementId) voir(o.nom, o.date);
-  for (const p of planifiees) voir(p.nom, "");
+  // Les transferts entre comptes n'entrent pas dans la liste
+  for (const o of operations) if (!o.virementId && o.nature !== "virement") voir(o.nom, o.date);
+  for (const p of planifiees) if (!p.virementCompteId && p.nature !== "virement") voir(p.nom, "");
   return [...groupes.values()].sort((x, y) => y.nb - x.nb || x.nom.localeCompare(y.nom, "fr")).map(({ nom, nb }) => ({ nom, nb }));
 }
 

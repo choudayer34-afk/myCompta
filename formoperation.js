@@ -35,13 +35,13 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], "operation");
   // Nom : liste des noms déjà saisis (filtre « contient »), la saisie libre ajoute un nouveau nom
   const noms = nomsConnus(etat.operations, etat.planifiees).map((n) => ({ id: n.nom, libelle: n.nom }));
-  const cNom = combo({ elements: () => noms, texte: src.nom || "", requis: true });
+  const cNom = combo({ elements: () => noms, texte: src.nom || "", requis: true, minCaracteres: 3, placeholder: "Nom (suggestions dès 3 lettres)" });
   const iNom = cNom.input;
   const iCom = h("input", { type: "text", value: src.commentaire || "" });
   const iDate = h("input", { type: "date", required: true, value: src.date || aujourdhui() });
   const iCompte = selecteur(optComptes, src.compteId || compteId);
   const iDest = selecteur(optComptes, (comptes.find((c) => c.id !== (src.compteId || compteId)) || {}).id);
-  const iNature = selecteur(NATURES, src.nature || "autre");
+  const iNature = selecteur(NATURES, src.nature && (op || src.nature !== "autre") ? src.nature : "carte");
   const iInfo = h("input", { type: "text", value: src.info || "", autocomplete: "off" });
   const iExport = h("input", { type: "checkbox", checked: op ? !!op.aExporter : true });
   const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export");
@@ -128,6 +128,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
     cInfo.hidden = virement || nouveauVirement || iNature.value !== "cheque";
     cCat.hidden = virement || nouveauVirement;
     cFreq.hidden = !!op;
+    sCat.hidden = cCat.hidden; sFreq.hidden = cFreq.hidden;
     boutonsStatut.forEach((b) => { const on = b.dataset.v === statut; b.classList.toggle("actif", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
     cPointage.hidden = statut !== "pointe";
     majAssoc();
@@ -152,7 +153,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   iNature.addEventListener("change", basculer);
   iCompte.addEventListener("change", majPuces);
 
-  const actions = h("div", { class: "actions" },
+  const actions = h("div", { class: "actions barre-fixe" },
     h("button", { type: "submit" }, "Enregistrer"),
     h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler"),
     op && !virement && h("button", { type: "button", class: "sec", onclick: () => {
@@ -169,13 +170,18 @@ export function formOperation({ compteId, op = null, modele = null }) {
     } }, "Supprimer")
   );
 
-  const plus = h("details", { class: "plus" }, h("summary", {}, "Plus d'options"), champ("Commentaire", iCom));
+  const plus = h("details", { class: "plus" }, h("summary", {}, "Ajouter un commentaire"), champ("Commentaire", iCom));
   if (src.commentaire) plus.open = true;
 
+  const section = (titre, ...contenu) => h("section", { class: "section" }, h("h3", { class: "section-titre" }, titre), ...contenu);
+  const sQui = section("Opération", cCompte, cType, cDest, champ("Nom", cNom.element), cExport);
+  const sCat = section("Catégorie", cCat);
+  const sMontant = section("Montant et date", cMontant, h("div", { class: "deux" }, champ("Date", iDate), cNature), cInfo);
+  const sStatut = section("Statut", cStatut, cPointage);
+  const sFreq = section("Répétition", cFreq);
+  const sPlus = section("Autres informations", plus);
   const { dialogue, formulaire } = modale(op ? "Opération" : "Nouvelle opération", [
-    cCompte, cType, cDest, champ("Nom", cNom.element), cExport, cCat, cMontant,
-    h("div", { class: "deux" }, champ("Date", iDate), cNature), cInfo,
-    cStatut, cPointage, cFreq, plus, cLie, erreur, actions
+    sQui, sCat, sMontant, sStatut, sFreq, sPlus, cLie, erreur, actions
   ]);
   majSens();
   basculer();

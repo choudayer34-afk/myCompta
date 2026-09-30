@@ -34,7 +34,7 @@ export function champ(libelle, controle) {
 //  - elements() : [{ id, libelle }] (relu à chaque affichage)
 //  - ajout : texte du bouton d'ajout (ex. « Ajouter la catégorie ») ; si absent, la saisie libre est la valeur (noms d'opérations)
 // Retourne { element, input, texte(), id(), definir(id), definirTexte(t), resoudre(), surChangement(f) }
-export function combo({ elements, valeur = "", texte = "", ajout = null, placeholder = "", requis = false, alpha = false }) {
+export function combo({ elements, valeur = "", texte = "", ajout = null, placeholder = "", requis = false, alpha = false, minCaracteres = 0 }) {
   let idChoisi = valeur || null;
   const trouve = (id) => elements().find((e) => e.id === id);
   const input = h("input", { type: "text", autocomplete: "off", autocapitalize: "sentences", placeholder, required: requis || null,
@@ -72,6 +72,8 @@ export function combo({ elements, valeur = "", texte = "", ajout = null, placeho
 
   function afficher() {
     const q = input.value;
+    // Liste masquée tant que la saisie est trop courte (noms d'opérations : 3 lettres)
+    if (minCaracteres && normaliser(q).length < minCaracteres) { liste.replaceChildren(); liste.classList.add("cache"); return; }
     const tous = elements();
     const filtres = filtrerContient(tous, q, (x) => x.libelle, 40, alpha);
     const noeuds = filtres.map((e) => h("button", { type: "button", class: "choix", role: "option",

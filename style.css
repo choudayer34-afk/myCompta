@@ -165,3 +165,11 @@ tr.doublon input[type=text] { border-color:var(--alerte); }
 details.plus { margin:10px 0; }
 details.plus summary { cursor:pointer; color:var(--accent); padding:6px 0; }
 .champ label.case { display:flex; align-items:center; gap:10px; font-size:.95rem; color:var(--texte); margin:10px 0 0; }
+
+/* Sections du formulaire d'opération */
+.section { background:var(--fond); border:1px solid var(--bord); border-radius:12px; padding:12px; margin:0 0 14px; }
+.section-titre { margin:0 0 10px; font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+.section input:not([type=checkbox]), .section select, .section textarea { background:var(--carte); }
+.section .champ:last-child { margin-bottom:0; }
+.section details.plus { margin:0; }
+.barre-fixe { position:sticky; bottom:-16px; background:var(--carte); margin:0 -16px -16px; padding:10px 16px 16px; border-top:1px solid var(--bord); z-index:2; }
