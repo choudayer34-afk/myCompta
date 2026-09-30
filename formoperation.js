@@ -18,7 +18,7 @@ export function categoriesFrequentes(compteId, operations, categories, max = NB_
     partout.set(o.categorieId, (partout.get(o.categorieId) || 0) + 1);
     if (o.compteId === compteId) ici.set(o.categorieId, (ici.get(o.categorieId) || 0) + 1);
   }
-  const existantes = categories.filter((c) => partout.has(c.id));
+  const existantes = categories.filter((c) => !c.archive && partout.has(c.id));
   existantes.sort((a, b) => (ici.get(b.id) || 0) - (ici.get(a.id) || 0) || partout.get(b.id) - partout.get(a.id) || a.nom.localeCompare(b.nom, "fr"));
   return existantes.slice(0, max);
 }
@@ -73,7 +73,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
 
   // Catégorie : puces fréquentes (icône + nom), recherche « contient » triée par ordre alphabétique, ajout à la volée
   const iCat = combo({
-    elements: () => categoriesTriees().map((c) => ({ id: c.id, libelle: c.libelle, affichage: (c.icone ? c.icone + " " : "") + c.libelle })),
+    elements: () => categoriesTriees(false, src.categorieId).map((c) => ({ id: c.id, libelle: c.libelle, affichage: (c.icone ? c.icone + " " : "") + c.libelle })),
     valeur: src.categorieId || "", ajout: "Ajouter la catégorie", placeholder: "Autre catégorie : rechercher ou ajouter", alpha: true });
   const zonePuces = h("div", { class: "puces-cat" });
   const assocInitiale = associationPour(etat.nomsCategories, src.nom || "");
@@ -138,7 +138,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   function appliquerAssociation() {
     if (op) return;
     const a = associationPour(etat.nomsCategories, iNom.value);
-    const cat = a && etat.categories.find((c) => c.id === a.categorieId);
+    const cat = a && etat.categories.find((c) => c.id === a.categorieId && !c.archive);
     enCours = true;
     if (cat && !categorieTouchee) { iCat.definir(cat.id); iAssoc.checked = true; categorieAuto = true; }
     else if (!cat && categorieAuto) { iCat.definirTexte(""); iAssoc.checked = false; categorieAuto = false; }

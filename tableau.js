@@ -6,7 +6,7 @@ import { analyserDate, analyserColle, preparerLignes, doublonsProbables } from "
 import { associationPour } from "./noms.js";
 
 // Catégorie associée à ce nom (si l'association existe et que la catégorie existe encore)
-const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId) ? a.categorieId : null; };
+const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId && !c.archive) ? a.categorieId : null; };
 
 // Saisie en tableau : un même nom d'opération, plusieurs dates et montants (rattrapage).
 export function formTableau({ compteId }) {

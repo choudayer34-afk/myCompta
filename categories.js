@@ -12,6 +12,7 @@ function formCategorie(cat = null) {
   const iNom = h("input", { type: "text", required: true, value: cat?.nom || "", autocomplete: "off" });
   const iParent = selecteur([["", "— aucune (catégorie principale) —"], ...parents], cat?.parentId || "", { disabled: aDesEnfants || null });
   const iCouleur = h("input", { type: "color", value: cat?.couleur || couleurAuHasard() });
+  const iEtat = selecteur([["actif", "Active"], ["archive", "Archivée (masquée à la saisie)"]], cat?.archive ? "archive" : "actif");
   const iIcone = h("input", { type: "text", value: cat?.icone || "", maxlength: "4", placeholder: "Touchez une icône ci-dessous", autocomplete: "off" });
   const choixIcones = h("div", { class: "puces-cat" }, ICONES_CAT.map((i) => h("button", { type: "button", class: "puce-cat", onclick: () => { iIcone.value = iIcone.value === i ? "" : i; } }, i)));
   const erreur = h("p", { class: "erreur" });
@@ -30,14 +31,17 @@ function formCategorie(cat = null) {
   );
 
   const { dialogue, formulaire } = modale(cat ? "Modifier la catégorie" : "Nouvelle catégorie", [
-    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Icône (facultative)", iIcone), choixIcones, champ("Couleur", iCouleur), erreur, actions
+    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Icône (facultative)", iIcone), choixIcones, champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
   ]);
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
+    const archive = iEtat.value === "archive";
     l.set("categories", cat?.id || nouvelId("categories"), {
-      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value, icone: iIcone.value.trim()
+      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value, icone: iIcone.value.trim(), archive
     });
+    // Archiver une catégorie principale archive aussi ses sous-catégories
+    if (cat && archive && !cat.archive) for (const e of etat.categories.filter((c) => c.parentId === cat.id && !c.archive)) l.set("categories", e.id, { archive: true });
     l.envoyer();
     dialogue.close();
   });
@@ -53,12 +57,17 @@ export function monter(conteneur) {
     if (!pret()) { liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const utilisations = new Map();
     for (const o of etat.operations) if (o.categorieId) utilisations.set(o.categorieId, (utilisations.get(o.categorieId) || 0) + 1);
-    resume.textContent = `${etat.categories.length} catégories`;
-    const lignes = categoriesTriees().map((c) =>
-      h("button", { class: "ligne bouton-ligne" + (c.parentId ? " enfant" : ""), style: `border-left-color:${c.couleur || "transparent"}`, onclick: () => formCategorie(etat.categories.find((x) => x.id === c.id)) },
+    const actives = etat.categories.filter((c) => !c.archive).length;
+    resume.textContent = `${actives} catégories actives` + (etat.categories.length > actives ? ` · ${etat.categories.length - actives} archivée(s)` : "");
+    const ligneDe = (c) =>
+      h("button", { class: "ligne bouton-ligne" + (c.parentId ? " enfant" : "") + (c.archive ? " terminee" : ""), style: `border-left-color:${c.couleur || "transparent"}`, onclick: () => formCategorie(etat.categories.find((x) => x.id === c.id)) },
         h("div", { class: "gauche" }, h("strong", {}, (c.icone ? c.icone + " " : "") + (c.parentId ? c.nom : c.libelle))),
-        h("div", { class: "droite" }, h("small", {}, `${utilisations.get(c.id) || 0} op.`))));
-    liste.replaceChildren(...(lignes.length ? lignes : [h("p", { class: "vide" }, "Aucune catégorie. Touchez + pour en créer une.")]));
+        h("div", { class: "droite" }, h("small", {}, `${utilisations.get(c.id) || 0} op.`)));
+    const toutes = categoriesTriees(true);
+    const lignes = toutes.filter((c) => !c.archive).map(ligneDe);
+    const archivees = toutes.filter((c) => c.archive).map((c) => ligneDe({ ...c, parentId: null }));
+    liste.replaceChildren(...(lignes.length || archivees.length ? lignes : [h("p", { class: "vide" }, "Aucune catégorie. Touchez + pour en créer une.")]),
+      ...(archivees.length ? [h("h3", { class: "groupe" }, "Archivées"), ...archivees] : []));
   }
   maj();
   return { maj };

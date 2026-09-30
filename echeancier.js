@@ -28,7 +28,7 @@ export function formPlanifiee(p = null) {
   const iCompte = selecteur(optComptes, p?.compteId);
   const iDest = selecteur(optComptes, p?.virementCompteId || (comptes.find((c) => c.id !== (p?.compteId || comptes[0]?.id)) || {}).id);
   const iNature = selecteur(NATURES, p?.nature || "autre");
-  const iCat = selecteur([["", "— aucune —"], ...categoriesTriees().map((c) => [c.id, c.libelle])], p?.categorieId || "");
+  const iCat = selecteur([["", "— aucune —"], ...categoriesTriees(false, p?.categorieId).map((c) => [c.id, c.libelle])], p?.categorieId || "");
   const iFreq = selecteur(FREQUENCES, p?.frequence || "mensuel");
   const iProchaine = h("input", { type: "date", required: true, value: p?.prochaine || aujourdhui() });
   const iFin = h("input", { type: "date", value: p?.dateFin || "" });

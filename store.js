@@ -107,8 +107,10 @@ export function libelleCategorie(c) {
   return p ? `${p.nom} › ${c.nom}` : c.nom;
 }
 
-export function categoriesTriees() {
+// Catégories triées par libellé. Les catégories archivées sont exclues (sauf avec `avecArchivees`, ou si c'est `garderId`).
+export function categoriesTriees(avecArchivees = false, garderId = null) {
   return etat.categories
+    .filter((c) => avecArchivees || !c.archive || c.id === garderId)
     .map((c) => ({ ...c, libelle: libelleCategorie(c) }))
     .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
 }

@@ -7,7 +7,7 @@ import { analyserDate, analyserReleve, montantSigne } from "./saisie.js";
 import { associationPour } from "./noms.js";
 
 // Catégorie associée à ce nom (si l'association existe et que la catégorie existe encore)
-const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId) ? a.categorieId : null; };
+const categorieDe = (nom) => { const a = associationPour(etat.nomsCategories, nom); return a && etat.categories.some((c) => c.id === a.categorieId && !c.archive) ? a.categorieId : null; };
 
 export function formRapide({ compteId }) {
   const comptes = etat.comptes.filter((c) => !c.archive || c.id === compteId).sort(comparerComptes);
