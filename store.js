@@ -33,6 +33,9 @@ export function demarrer(uid) {
   for (const nom of ["comptes", "categories", "operations", "planifiees", "nomsCategories", "budgets", "reglages"]) {
     arrets.push(onSnapshot(
       collection(db, "users", uid, nom),
+      // Sans cette option, Firestore ne signale pas le passage « cache » -> « serveur » quand les données n'ont pas changé :
+      // l'application resterait indéfiniment en attente de données « fiables » et ne créerait jamais les échéances.
+      { includeMetadataChanges: true },
       (snap) => {
         etat[nom] = snap.docs.map((d) => ({ ...d.data({ serverTimestamps: "estimate" }), id: d.id }));
         charge[nom] = true;
