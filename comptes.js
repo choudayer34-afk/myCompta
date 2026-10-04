@@ -1,4 +1,4 @@
-import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes } from "./store.js";
+import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes, serverTimestamp } from "./store.js";
 import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
@@ -22,6 +22,31 @@ export function formCompte(compte = null) {
   iEnCours.addEventListener("input", () => { const v = versCentimes(iEnCours.value); if (v !== null) iSolde.value = saisie(v - somme); });
   const cEnCours = champ("Solde en cours (€) – opérations non pointées comprises", iEnCours);
   cEnCours.hidden = !compte;
+  // Solde pointé : à renseigner d'après le relevé ; l'écart est enregistré sous forme d'une opération d'ajustement
+  const sommePointee = compte ? etat.operations.filter((o) => o.compteId === compte.id && o.statut === "pointe").reduce((s, o) => s + o.montant, 0) : 0;
+  const iPointe = h("input", { type: "text", inputmode: "decimal", placeholder: "laisser vide pour ne rien ajuster", value: "", autocomplete: "off" });
+  const iDateAjust = h("input", { type: "date", value: aujourdhui() });
+  const infoEcart = h("p", { class: "note" });
+  const ecartPointe = () => {
+    const cible = versCentimes(iPointe.value);
+    const solde = versCentimes(iSolde.value);
+    if (!iPointe.value.trim() || cible === null || solde === null) return null;
+    return cible - (solde + sommePointee);
+  };
+  const majEcart = () => {
+    const solde = versCentimes(iSolde.value);
+    const actuel = solde === null ? null : solde + sommePointee;
+    const e = ecartPointe();
+    infoEcart.textContent = actuel === null ? "" : `Solde pointé actuel : ${euros(actuel)}.` +
+      (iPointe.value.trim() ? (e === null ? " Montant invalide." : e === 0 ? " Aucun écart : rien à créer." : ` Une opération « Ajustement de solde » de ${euros(e)} sera créée (pointée).`) : "");
+    cDateAjust.hidden = !(e);
+  };
+  const cPointe = h("div", { class: "champ" }, h("label", {}, "Solde pointé (€) – d'après le relevé"), iPointe, infoEcart);
+  const cDateAjust = champ("Date de l'opération d'ajustement", iDateAjust);
+  cDateAjust.hidden = true;
+  cPointe.hidden = !compte;
+  for (const i of [iPointe, iSolde, iEnCours]) i.addEventListener("input", majEcart);
+  if (compte) majEcart();
   const iCouleur = h("input", { type: "color", value: compte?.couleur || couleurAuHasard() });
   const iPart = h("input", { type: "text", inputmode: "decimal", value: String(compte ? partCompte(compte) : 100).replace(".", ",") });
   const cPart = champ("Ma part du solde (%) – 50 pour un compte joint à moitié", iPart);
@@ -43,7 +68,7 @@ export function formCompte(compte = null) {
 
   const { dialogue, formulaire } = modale(compte ? "Modifier le compte" : "Nouveau compte", [
     champ("Nom", iNom), champ("Type", iType), champ("Date d'ouverture", iOuv),
-    champ("Solde initial (€)", iSolde), cEnCours, champ("Couleur", iCouleur), cPart, champ("État", iEtat), erreur, actions
+    champ("Solde initial (€)", iSolde), cEnCours, cPointe, cDateAjust, champ("Couleur", iCouleur), cPart, champ("État", iEtat), erreur, actions
   ]);
 
   formulaire.addEventListener("submit", (e) => {
@@ -54,6 +79,15 @@ export function formCompte(compte = null) {
     if (!Number.isFinite(part) || part < 0 || part > 100 || iPart.value.trim() === "") { erreur.textContent = "La part doit être comprise entre 0 et 100."; return; }
     const id = compte?.id || nouvelId("comptes");
     const l = lot();
+    if (compte && iPointe.value.trim() && versCentimes(iPointe.value) === null) { erreur.textContent = "Solde pointé invalide."; return; }
+    const ecart = compte ? ecartPointe() : null;
+    if (ecart) {
+      if (!iDateAjust.value) { erreur.textContent = "Indiquez la date de l'opération d'ajustement."; return; }
+      l.set("operations", nouvelId("operations"), {
+        nom: "Ajustement de solde", commentaire: "Écart avec le relevé", date: iDateAjust.value, montant: ecart, compteId: id,
+        statut: "pointe", datePointage: aujourdhui(), nature: "autre", categorieId: null, info: "", aExporter: false, virementId: null, cree: serverTimestamp()
+      });
+    }
     l.set("comptes", id, {
       nom: iNom.value.trim(), type: iType.value, dateOuverture: iOuv.value || null,
       soldeInitial: solde, couleur: iCouleur.value, archive: iEtat.value === "archive", part,

@@ -342,3 +342,6 @@ nav a { font-size:1.3rem; }
 .paire .piste .a { background:var(--sx); } .paire .piste .b { background:var(--s0); }
 .paire small { min-width:84px; text-align:right; color:var(--texte); }
 .reste-budget.neg { color:var(--neg); } .reste-budget.pos { color:var(--pos); }
+
+/* Pas de zoom au double toucher (iPhone) : le pincement reste possible */
+html, body, * { touch-action: manipulation; }
