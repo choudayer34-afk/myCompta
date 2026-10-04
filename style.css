@@ -345,3 +345,7 @@ nav a { font-size:1.3rem; }
 
 /* Pas de zoom au double toucher (iPhone) : le pincement reste possible */
 html, body, * { touch-action: manipulation; }
+
+/* Activité des comptes */
+.ligne small.activite { font-size:.72rem; }
+.ligne small.activite.retard { color:var(--alerte); font-weight:600; }

@@ -1,5 +1,11 @@
 import { filtrerContient, normaliser } from "./noms.js";
 
+// replaceChildren / append écrivent « null » à l'écran quand on leur passe null : on écarte les valeurs vides une fois pour toutes.
+for (const nom of ["replaceChildren", "append", "prepend"]) {
+  const origine = Element.prototype[nom];
+  Element.prototype[nom] = function (...enfants) { return origine.apply(this, enfants.filter((c) => c != null && c !== false)); };
+}
+
 // Petits outils pour construire l'interface sans risque d'injection (tout passe par textContent).
 export function h(tag, attrs = {}, ...enfants) {
   const e = document.createElement(tag);

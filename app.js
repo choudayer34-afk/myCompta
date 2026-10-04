@@ -11,7 +11,7 @@ import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
-import { majAlertes } from "./alertes.js";
+import { majAlertes, majPointage } from "./alertes.js";
 import { VERSION } from "./version.js";
 
 const $ = (id) => document.getElementById(id);
@@ -103,6 +103,7 @@ let surBudgets = false;
 function rafraichirAlertes() {
   if (!auth.currentUser) return;
   majAlertes($("bandeau-budget"), document.querySelector('nav a[data-onglet="budgets"]'), surBudgets);
+  majPointage($("bandeau-pointage"), document.querySelector('nav a[data-onglet="comptes"]'));
 }
 
 // Navigation par adresse (#/comptes, #/compte/ID, #/categories)

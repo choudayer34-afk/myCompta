@@ -3,6 +3,8 @@ import { aujourdhui, dateFr, euros } from "./format.js";
 import { h, selecteur, champ } from "./ui.js";
 import { selectionner, lignesExport, construireXlsx, montantTexte } from "./exportation.js";
 import { carteSauvegarde } from "./sauvegardeui.js";
+import { repartitionOperations } from "./bilancalc.js";
+import { blocRepartition } from "./camembert.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 const iso = (d) => `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
@@ -24,6 +26,7 @@ export function monter(conteneur, { id } = {}) {
   const iFormat = selecteur([["texte", "Texte avec virgule (12,50)"], ["nombre", "Nombre (calculable)"]], "texte");
   const cFormat = champ("Format du montant (2 colonnes)", iFormat);
   const apercu = h("div");
+  const repartition = h("div");
   const boutons = h("div", { class: "actions" });
 
   function preset(annee, mois, jusqua) { iDu.value = debutMois(annee, mois); iAu.value = jusqua || finMois(annee, mois); maj(); }
@@ -44,7 +47,7 @@ export function monter(conteneur, { id } = {}) {
       h("label", { class: "case" }, iSansEsp, "Supprimer aussi les espaces dans les titres"),
       cEntete,
       cFormat),
-    apercu, boutons, sauvegarde.element);
+    apercu, repartition, boutons, sauvegarde.element);
 
   function reconstruireComptes() {
     const valeur = iCompte.value || id || "";
@@ -93,6 +96,14 @@ export function monter(conteneur, { id } = {}) {
           ? `${l.date} ; ${l.categorie || "—"} ; ${l.titre} ; ${montantTexte(-l.montant)} ; ${montantTexte(l.montant)}`
           : `${l.titre} ; ${options.montantEnTexte ? montantTexte(l.montant) : l.montant / 100}`))) : h("p", { class: "note" }, "Aucune opération pour ces critères. Cochez « Inclure dans l'export » dans les opérations concernées, ou décochez l'option ci-dessus."),
       ops.length > 10 ? h("p", { class: "note" }, `… et ${ops.length - 10} autre(s).`) : null));
+    // Répartition par catégorie des opérations qui seront exportées
+    if (ops.length) {
+      const r = repartitionOperations({ categories: etat.categories, operations: ops });
+      const notes = [];
+      if (r.recettes) notes.push(`Recettes et remboursements non représentés : ${euros(r.recettes)}.`);
+      if (r.ecartees) notes.push(`${r.ecartees} virement(s) ou opération(s) annulée(s) écartée(s) du camembert (elles restent dans le fichier).`);
+      repartition.replaceChildren(blocRepartition(r, { titre: "Répartition par catégorie des opérations exportées", notes }));
+    } else repartition.replaceChildren();
     boutons.replaceChildren(
       h("button", { type: "button", disabled: ops.length ? null : true, onclick: telecharger }, "Télécharger le fichier Excel"),
       typeof navigator.canShare === "function" && navigator.canShare({ files: [new File(["x"], "t.xlsx", { type: "application/octet-stream" })] })

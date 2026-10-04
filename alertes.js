@@ -2,6 +2,7 @@ import { etat, pret } from "./store.js";
 import { aujourdhui } from "./format.js";
 import { h } from "./ui.js";
 import { calculerBudget, alertesBudget } from "./budget.js";
+import { comptesEnRetard } from "./activite.js";
 
 // Bandeau d'alerte et pastille sur l'onglet Budgets (mois en cours, comptes suivis).
 let masque = "";   // alertes déjà fermées (jusqu'à ce qu'elles changent)
@@ -43,4 +44,20 @@ export function majAlertes(bandeau, onglet, surBudgets) {
       h("a", { href: "#/budgets" }, "Voir"),
       h("button", { type: "button", class: "sec", "aria-label": "Masquer", onclick: () => { masque = signature; bandeau.classList.add("cache"); } }, "✕")));
   return a;
+}
+
+// Rappel de pointage : comptes ayant des opérations à pointer et aucun pointage depuis plus d'une semaine.
+let masquePointage = "";
+export function majPointage(bandeau, onglet) {
+  const retard = pret() ? comptesEnRetard(etat.comptes, etat.operations, aujourdhui(), 7) : [];
+  onglet.classList.toggle("alerte-orange", retard.length > 0);
+  const signature = aujourdhui() + "|" + retard.map((x) => x.compte.id).join(",");
+  const afficher = retard.length > 0 && signature !== masquePointage;
+  bandeau.classList.toggle("cache", !afficher);
+  if (afficher) bandeau.replaceChildren(
+    h("span", {}, "À pointer depuis plus d'une semaine : " + retard.map((x) => `${x.compte.nom} (${x.dernierPointage ? `dernier pointage il y a ${x.depuis} j` : "jamais pointé"}, ${x.nb} à pointer)`).join(" · ")),
+    h("span", { class: "rappel-actions" },
+      h("a", { href: "#/comptes" }, "Voir"),
+      h("button", { type: "button", class: "sec", "aria-label": "Masquer", onclick: () => { masquePointage = signature; bandeau.classList.add("cache"); } }, "✕")));
+  return retard;
 }

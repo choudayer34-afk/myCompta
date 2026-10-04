@@ -3,15 +3,7 @@ import { euros, aujourdhui, dateFr } from "./format.js";
 import { h } from "./ui.js";
 import { comptesSuivis, etiquette } from "./budgets.js";
 import { repartitionDepenses, pourPart, bornesPeriode } from "./bilancalc.js";
-
-const SVG = "http://www.w3.org/2000/svg";
-const svg = (tag, attrs = {}, ...enfants) => {
-  const e = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  enfants.forEach((c) => c && e.append(c));
-  return e;
-};
-const NB_COULEURS = 8;
+import { camembert, NB_COULEURS } from "./camembert.js";
 
 function decaler(mode, ref, n) {
   const a = +ref.slice(0, 4), m = +ref.slice(5, 7);
@@ -22,33 +14,6 @@ function titrePeriode(mode, ref) {
   if (mode === "annee") return ref.slice(0, 4);
   const t = new Date(ref.slice(0, 7) + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   return t.charAt(0).toUpperCase() + t.slice(1);
-}
-
-// Camembert : une part par poste, du plus gros au plus petit, à partir de midi dans le sens horaire.
-function camembert(parts, total, choisi, surChoix) {
-  const R = 100, C = 110;
-  const enfants = [];
-  let angle = -Math.PI / 2;
-  parts.forEach((p, i) => {
-    const fraction = p.realise / total;
-    const classe = "part c" + (p.categorieId === "__autres__" ? "x" : i % NB_COULEURS);
-    const actif = choisi === p.categorieId;
-    let forme;
-    if (fraction >= 0.9999) forme = svg("circle", { cx: C, cy: C, r: R });
-    else {
-      const a2 = angle + fraction * 2 * Math.PI, grand = fraction > 0.5 ? 1 : 0;
-      const x1 = C + R * Math.cos(angle), y1 = C + R * Math.sin(angle), x2 = C + R * Math.cos(a2), y2 = C + R * Math.sin(a2);
-      forme = svg("path", { d: `M${C},${C} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${grand} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z` });
-    }
-    forme.setAttribute("class", classe + (actif ? " actif" : ""));
-    forme.setAttribute("tabindex", "0");
-    forme.setAttribute("role", "button");
-    forme.setAttribute("aria-label", `${p.categorieId === "__autres__" ? "Autres" : etiquette(p.categorieId)} : ${euros(p.realise)}, ${Math.round(fraction * 100)} %`);
-    forme.addEventListener("click", () => surChoix(actif ? null : p.categorieId));
-    enfants.push(forme);
-    angle += fraction * 2 * Math.PI;
-  });
-  return svg("svg", { viewBox: "0 0 220 220", class: "camembert", role: "group", "aria-label": "Répartition des dépenses par poste" }, ...enfants);
 }
 
 export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
@@ -101,7 +66,7 @@ export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
     corps.replaceChildren(
       h("div", { class: "carte bilan-haut" },
         h("div", { class: "ligne-synthese" }, h("span", {}, `Dépenses · ${mode === "libre" ? `${dateFr(debut)} – ${dateFr(fin)}` : titrePeriode(mode, ref)}`), h("strong", {}, euros(r.total))),
-        camembert(parts, r.total, choisi, (id) => { choisi = id; maj(); }),
+        camembert(parts, r.total, choisi, (id) => { choisi = id; maj(); }, (p) => (p.categorieId === "__autres__" ? "Autres" : etiquette(p.categorieId))),
         h("p", { class: "centre-bilan" }, cible ? `${nom(cible)} : ${euros(cible.realise)} (${pct(cible.realise)})` : "Touchez une part pour la mettre en avant."),
         r.recettes ? h("p", { class: "note" }, `Les remboursements et recettes classés dans des catégories sans dépense nette (${euros(r.recettes)}) ne figurent pas dans le camembert.`) : null),
       ...legende);

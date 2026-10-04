@@ -45,3 +45,28 @@ export function pourPart(postes, max = 7) {
   tete.push({ categorieId: "__autres__", realise: reste.reduce((s, p) => s + p.realise, 0), nb: reste.length, enfants: [] });
   return tete;
 }
+
+// Répartition d'une liste d'opérations telle quelle (export) : dépense = -montant, sans part de compte.
+// Les virements et opérations annulées sont écartés ; retourne aussi leur nombre.
+export function repartitionOperations({ categories, operations }) {
+  const parId = new Map(categories.map((c) => [c.id, c]));
+  const racine = (id) => { let c = parId.get(id); if (!c) return id || null; while (c.parentId && parId.get(c.parentId)) c = parId.get(c.parentId); return c.id; };
+  const net = new Map(), sous = new Map();
+  let recettes = 0, ecartees = 0;
+  for (const o of operations) {
+    if (o.statut === "annule" || o.virementId || o.nature === "virement") { ecartees++; continue; }
+    const v = -o.montant;
+    const r = o.categorieId ? racine(o.categorieId) : null;
+    net.set(r, (net.get(r) || 0) + v);
+    if (!sous.has(r)) sous.set(r, new Map());
+    const s = sous.get(r), cle = o.categorieId || null;
+    s.set(cle, (s.get(cle) || 0) + v);
+  }
+  const postes = [];
+  for (const [r, v] of net) {
+    if (v > 0) postes.push({ categorieId: r, realise: v, enfants: [...sous.get(r)].filter(([, x]) => x > 0).map(([c, x]) => ({ categorieId: c, realise: x })).sort((a, b) => b.realise - a.realise) });
+    else recettes -= v;
+  }
+  postes.sort((a, b) => b.realise - a.realise);
+  return { total: postes.reduce((s, p) => s + p.realise, 0), postes, recettes, ecartees };
+}

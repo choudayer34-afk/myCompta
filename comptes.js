@@ -3,6 +3,8 @@ import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 import { dernierSauvegarde } from "./sauvegardeui.js";
+import { activiteCompte, joursEntre } from "./activite.js";
+import { dateFr } from "./format.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -150,7 +152,13 @@ export function monter(conteneur) {
     const corps = h("a", { class: "corps", href: `#/compte/${c.id}` },
       h("div", { class: "gauche" },
         h("strong", {}, c.nom),
-        h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1] + (partCompte(c) < 100 ? ` · ma part ${String(partCompte(c)).replace(".", ",")} %` : ""))),
+        h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1] + (partCompte(c) < 100 ? ` · ma part ${String(partCompte(c)).replace(".", ",")} %` : "")),
+        (() => {
+          const a = activiteCompte(c, etat.operations);
+          const retard = nbAPointer(c) && (!a.dernierPointage || joursEntre(a.dernierPointage, aujourdhui()) > 7);
+          return h("small", { class: "activite" + (retard ? " retard" : "") },
+            `Pointé le ${a.dernierPointage ? dateFr(a.dernierPointage) : "—"}`, a.derniereSaisie ? ` · saisie le ${dateFr(a.derniereSaisie)}` : "");
+        })()),
       h("div", { class: "droite" },
         h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
         h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : ""))));
