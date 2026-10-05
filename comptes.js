@@ -5,6 +5,7 @@ import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 import { dernierSauvegarde } from "./sauvegardeui.js";
 import { activiteCompte, joursEntre } from "./activite.js";
 import { dateFr } from "./format.js";
+import { formPastille } from "./alertes.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -102,11 +103,12 @@ export function formCompte(compte = null) {
 
 export function monter(conteneur) {
   const resume = h("div", { class: "resume" });
+  const bPastille = h("button", { type: "button", class: "sec petit-bouton", title: "Choisir les comptes comptés dans la pastille de l'onglet", onclick: () => pret() && formPastille() }, "🔴 Pastille : choisir les comptes");
   const rappel = h("div", { class: "rappel cache" });
   const liste = h("div", { class: "liste" });
   const totaux = h("div", { class: "carte totaux" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouveau compte", onclick: () => formCompte() }, "+");
-  conteneur.replaceChildren(resume, rappel, liste, totaux, ajout);
+  conteneur.replaceChildren(resume, rappel, liste, totaux, h("p", { class: "centre-bilan" }, bPastille), ajout);
 
   const nbAPointer = (c) => etat.operations.filter((o) => o.compteId === c.id && o.statut === "encours").length;
 

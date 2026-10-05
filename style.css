@@ -349,3 +349,56 @@ html, body, * { touch-action: manipulation; }
 /* Activité des comptes */
 .ligne small.activite { font-size:.72rem; }
 .ligne small.activite.retard { color:var(--alerte); font-weight:600; }
+
+/* Pastille chiffrée de l'onglet Comptes */
+nav a .pastille { position:absolute; top:3px; left:calc(50% + 6px); min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--accent); color:#fff; font-size:.68rem; font-weight:700; line-height:18px; text-align:center; letter-spacing:0; }
+nav a .pastille.retard { background:#ea580c; }
+@media (prefers-color-scheme: dark) { nav a .pastille { color:#062a26; } nav a .pastille.retard { color:#fff; } }
+nav a .pastille.cache { display:none; }
+.petit-bouton { font-size:.8rem; padding:6px 10px; }
+
+/* Soldes d'un compte : pointé en avant */
+div.solde-vue { font-size:.85rem; color:var(--discret); }
+
+/* v40 : navigation du bas (icône + libellé) */
+:root { --hauteur-nav:60px; }
+body { padding-bottom:calc(var(--hauteur-nav) + 8px + env(safe-area-inset-bottom)); }
+nav { align-items:stretch; }
+nav a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:7px 2px 6px; min-height:var(--hauteur-nav); box-sizing:border-box; font-size:.7rem; line-height:1.1; letter-spacing:0; opacity:1; border-top:3px solid transparent; font-weight:500; white-space:nowrap; }
+nav a .ico { font-size:1.4rem; line-height:1; opacity:.6; }
+nav a.actif { color:var(--accent); font-weight:700; border-top-color:var(--accent); }
+nav a.actif .ico { opacity:1; }
+nav a .pastille { top:2px; left:calc(50% + 4px); }
+nav a.alerte-orange::after, nav a.alerte-rouge::after { top:5px; right:calc(50% - 22px); }
+.barre-selection { bottom:calc(var(--hauteur-nav) + env(safe-area-inset-bottom)); }
+
+/* v40 : en-tête de solde du compte */
+.solde-bloc { display:flex; flex-direction:column; gap:2px; margin:2px 0 4px; }
+.solde-pointe { display:flex; flex-direction:column; }
+.solde-pointe small { color:var(--discret); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+.solde-pointe strong { font-size:2rem; line-height:1.15; white-space:nowrap; }
+.solde-encours { font-size:.88rem; color:var(--discret); font-style:italic; }
+
+/* v40 : liste des opérations en cartes par jour */
+.carte-jour { background:var(--carte); border:1px solid var(--bord); border-radius:14px; overflow:hidden; margin:0 0 12px; }
+h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-weight:600; text-transform:none; }
+.op-ligne { display:flex; align-items:center; gap:10px; padding:10px 12px; border-top:1px solid var(--bord); }
+.op-ligne:first-child { border-top:0; }
+.op-ligne.annule { opacity:.55; }
+.op-ligne.annule .op-nom { text-decoration:line-through; }
+.op-ligne.choisie { background:rgba(15,118,110,.12); }
+.op-icone { position:relative; flex:0 0 auto; width:42px; height:42px; border-radius:50%; border:0; padding:0; display:flex; align-items:center; justify-content:center; background:var(--bord); cursor:pointer; font-size:1.25rem; color:inherit; }
+.op-icone.sel { font-size:1.4rem; background:transparent; }
+.op-icone .glyphe { line-height:1; }
+.op-icone .coche { position:absolute; top:-3px; right:-3px; width:18px; height:18px; border-radius:50%; background:#16a34a; color:#fff; font-size:.68rem; font-weight:700; line-height:18px; text-align:center; border:2px solid var(--carte); box-sizing:content-box; }
+.op-icone .coche.annule { background:#dc2626; }
+.op-corps { flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px; background:none; border:0; padding:0; color:inherit; text-align:left; font:inherit; cursor:pointer; }
+.op-texte { display:flex; flex-direction:column; min-width:0; flex:1; }
+.op-nom { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.op-cat { color:var(--discret); font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.op-montant { flex:0 0 auto; font-weight:600; white-space:nowrap; }
+
+/* v40 : écran Plus (cartes sur 3 colonnes) */
+.grille-plus { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.carte-plus { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; background:var(--carte); border:1px solid var(--bord); border-radius:14px; padding:6px 4px; height:calc((100vh - 230px - var(--hauteur-nav)) / 5); min-height:84px; max-height:120px; color:var(--texte); text-decoration:none; font:inherit; font-size:.8rem; line-height:1.15; cursor:pointer; }
+.carte-plus .ico { font-size:1.7rem; line-height:1; }

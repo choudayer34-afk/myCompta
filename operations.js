@@ -29,7 +29,8 @@ export function monter(conteneur, { id }) {
   const compte = () => etat.comptes.find((c) => c.id === id);
 
   const titre = h("strong", { class: "titre-vue" });
-  const solde = h("span", { class: "solde-vue" });
+  const solde = h("div", { class: "solde-bloc" });   // solde pointé (grand) + en cours (italique, plus petit)
+  const detailSolde = h("div", { class: "solde-vue" });   // nombre d'opérations à pointer
   const enTete = h("div", { class: "entete-vue" },
     h("a", { href: "#/comptes", class: "retour" }, "‹ Comptes"), titre,
     h("button", { class: "sec", onclick: () => compte() && formCompte(compte()) }, "Modifier"));
@@ -73,7 +74,7 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde), rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
@@ -92,11 +93,15 @@ export function monter(conteneur, { id }) {
 
   function majListe() {
     const c = compte();
-    if (!pret()) { titre.textContent = "…"; liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
+    if (!pret()) { solde.replaceChildren(); detailSolde.textContent = ""; titre.textContent = "…"; liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     if (!c) { titre.textContent = "Introuvable"; liste.replaceChildren(h("p", { class: "vide" }, "Ce compte n'existe pas.")); return; }
     titre.textContent = c.nom;
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
-    solde.textContent = `${lignes.length} opérations – En cours : ${euros(lignes.length ? lignes[0].solde : c.soldeInitial || 0)} – Pointé : ${euros(soldePointe(c, etat.operations))}`;
+    const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
+    const pointe = soldePointe(c, etat.operations);
+    solde.replaceChildren(
+      h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant " + (pointe < 0 ? "neg" : "pos") }, euros(pointe))),
+      h("em", { class: "solde-encours" }, `en cours : ${euros(enCours)}`));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
     const modeles = habitudes(id, etat.operations, aujourdhui(), exclus);
@@ -105,7 +110,7 @@ export function monter(conteneur, { id }) {
       ...modeles.map((m) => h("button", { type: "button", class: "puce", title: `${m.nb} fois · dernier montant ${euros(m.dernierMontant)}`,
         onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, aExporter: m.aExporter, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
     const aPointer = lignes.filter((x) => x.statut === "encours");
-    if (aPointer.length) solde.textContent += ` – À pointer : ${aPointer.length} (${euros(aPointer.reduce((s, x) => s + x.montant, 0))})`;
+    detailSolde.textContent = aPointer.length ? `${aPointer.length} à pointer` : "";
     bFiltre.classList.toggle("actif-filtre", nonPointees);
     bFiltre.textContent = nonPointees ? "À pointer ✓" : "À pointer";
     if (nonPointees) lignes = aPointer;
@@ -133,33 +138,48 @@ export function monter(conteneur, { id }) {
     if (!lignes.length) { liste.replaceChildren(h("p", { class: "vide" }, q ? "Aucun résultat." : nonPointees ? "Aucune opération à pointer." : "Aucune opération. Touchez + pour en ajouter.")); return; }
 
     const noeuds = [];
-    let mois = "";
+    const jourTitre = (iso) => {
+      if (iso === aujourdhui()) return "aujourd'hui";
+      const hier = new Date(); hier.setDate(hier.getDate() - 1);
+      if (iso === `${hier.getFullYear()}-${String(hier.getMonth() + 1).padStart(2, "0")}-${String(hier.getDate()).padStart(2, "0")}`) return "hier";
+      const d = new Date(iso + "T12:00:00");
+      return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", ...(d.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}) });
+    };
+    const parId = new Map(etat.categories.map((x) => [x.id, x]));
+    const iconeDe = (cat) => (cat && (cat.icone || (cat.parentId && parId.get(cat.parentId) && parId.get(cat.parentId).icone))) || "";
+    let jour = null, carteJour = null;
     for (const o of lignes.slice(0, limite)) {
-      const m = moisFr(o.date);
-      if (m !== mois) { mois = m; noeuds.push(h("h3", { class: "groupe" }, m)); }
+      if (o.date !== jour) {
+        jour = o.date;
+        noeuds.push(h("h3", { class: "groupe" }, jourTitre(jour)));
+        carteJour = h("div", { class: "carte-jour" });
+        noeuds.push(carteJour);
+      }
       const cat = cats.get(o.categorieId);
       const choisie = choisies.has(o.id);
-      const pastille = mode
-        ? h("span", { class: "pointer sel", "aria-hidden": "true" }, choisie ? "☑" : "☐")
-        : o.statut === "annule"
-        ? h("span", { class: "pointer inactif", title: "Annulée" }, ICONES.annule)
-        : h("button", { type: "button", class: "pointer", "aria-label": o.statut === "pointe" ? "Dépointer" : "Pointer", title: o.statut === "pointe" ? "Pointée : toucher pour dépointer" : "En cours : toucher pour pointer", onclick: () => basculer(o) }, ICONES[o.statut]);
-      noeuds.push(h("div", {
-        class: "ligne avec-pointage" + (o.statut === "annule" ? " annule" : "") + (mode && choisie ? " choisie" : ""),
-        style: `border-left-color:${cat?.couleur || c.couleur || "transparent"}`
-      },
-        pastille,
-        h("button", { type: "button", class: "corps", onclick: () => {
+      const virement = !!o.virementId || o.nature === "virement";
+      const glyphe = virement ? "⇄" : iconeDe(cat) || "•";
+      const teinte = !virement && cat && cat.couleur ? `background:${cat.couleur}26` : "";
+      const libCat = virement ? "Virement" : cat ? (cat.parentId && parId.get(cat.parentId) ? `${parId.get(cat.parentId).nom} › ${cat.nom}` : cat.nom) : o.aClasser ? "🤔 À classer" : "Sans catégorie";
+      let icone;
+      if (mode) icone = h("span", { class: "op-icone sel", "aria-hidden": "true", onclick: () => { if (choisies.has(o.id)) choisies.delete(o.id); else choisies.add(o.id); majListe(); } }, choisie ? "☑" : "☐");
+      else {
+        const coche = o.statut === "pointe" ? h("span", { class: "coche" }, "✓") : o.statut === "annule" ? h("span", { class: "coche annule" }, "✕") : null;
+        icone = h(o.statut === "annule" ? "span" : "button", {
+          type: o.statut === "annule" ? null : "button", class: "op-icone", style: teinte,
+          "aria-label": o.statut === "pointe" ? "Dépointer" : o.statut === "annule" ? "Annulée" : "Pointer",
+          title: o.statut === "pointe" ? "Pointée : toucher pour dépointer" : o.statut === "annule" ? "Annulée" : "En cours : toucher pour pointer",
+          onclick: o.statut === "annule" ? null : () => basculer(o)
+        }, h("span", { class: "glyphe" }, glyphe), coche);
+      }
+      carteJour.append(h("div", { class: "op-ligne" + (o.statut === "annule" ? " annule" : "") + (mode && choisie ? " choisie" : "") },
+        icone,
+        h("button", { type: "button", class: "op-corps", onclick: () => {
           if (mode) { if (choisies.has(o.id)) choisies.delete(o.id); else choisies.add(o.id); majListe(); return; }
           formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) });
         } },
-          h("div", { class: "gauche" },
-            h("strong", {}, o.nom),
-            h("small", {}, `${dateFr(o.date)}${cat ? " · " + (cat.icone ? cat.icone + " " : "") + cat.nom : ""}${o.aExporter ? " · à exporter" : ""}${o.aClasser && !cat ? " · 🤔 à classer" : ""}`)),
-          h("div", { class: "droite" },
-            h("small", {}, euros(o.solde)),
-            h("span", { class: "montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
-            h("small", {}, libelleNature(o.nature))))));
+          h("span", { class: "op-texte" }, h("span", { class: "op-nom" }, o.nom), h("small", { class: "op-cat" }, libCat)),
+          h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)))));
     }
     if (lignes.length > limite) {
       noeuds.push(h("button", { class: "sec plus", onclick: () => { limite += PAGE; majListe(); } }, `Afficher plus (${lignes.length - limite} restantes)`));

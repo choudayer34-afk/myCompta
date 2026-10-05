@@ -11,7 +11,8 @@ import * as vueImport from "./import.js";
 import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
-import { majAlertes, majPointage } from "./alertes.js";
+import * as vuePlus from "./plus.js";
+import { majAlertes, majPointage, majPastille, comptesPastille } from "./alertes.js";
 import { VERSION } from "./version.js";
 
 const $ = (id) => document.getElementById(id);
@@ -103,7 +104,9 @@ let surBudgets = false;
 function rafraichirAlertes() {
   if (!auth.currentUser) return;
   majAlertes($("bandeau-budget"), document.querySelector('nav a[data-onglet="budgets"]'), surBudgets);
-  majPointage($("bandeau-pointage"), document.querySelector('nav a[data-onglet="comptes"]'));
+  const retard = majPointage($("bandeau-pointage"), document.querySelector('nav a[data-onglet="comptes"]'));
+  const suivis = comptesPastille();
+  majPastille(document.querySelector('nav a[data-onglet="comptes"]'), retard.some((x) => suivis.includes(x.compte.id)));
 }
 
 // Navigation par adresse (#/comptes, #/compte/ID, #/categories)
@@ -116,7 +119,7 @@ function naviguer() {
   if (compte) {
     vue = vueOperations.monter(principal, { id: decodeURIComponent(compte[1]) });
   } else if (hash === "#/export" || hash.startsWith("#/export/")) {
-    onglet = "export";
+    onglet = "plus";
     vue = vueExport.monter(principal, { id: decodeURIComponent(hash.slice(9)) });
   } else if (hash === "#/echeancier") {
     onglet = "echeancier";
@@ -124,8 +127,11 @@ function naviguer() {
   } else if (hash === "#/budgets" || hash === "#/bilan") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);
+  } else if (hash === "#/plus") {
+    onglet = "plus";
+    vue = vuePlus.monter(principal);
   } else if (hash === "#/import") {
-    onglet = "import";
+    onglet = "plus";
     vue = vueImport.monter(principal);
   } else if (hash === "#/categories") {
     onglet = "categories";
