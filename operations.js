@@ -123,6 +123,15 @@ export function monter(conteneur, { id }) {
     else if (fCat === "sans") lignes = lignes.filter((o) => !o.categorieId && !estVirement(o));
     else if (fCat === "aclasser") lignes = lignes.filter((o) => o.aClasser && !o.categorieId);
     if (q) lignes = lignes.filter((o) => correspond(o, q, nomsCat));
+    // Même jour : regroupées par catégorie (parent › sous-catégorie), sans catégorie en dernier
+    const libCat = (o) => { const k = cats.get(o.categorieId); if (!k) return ""; const p = k.parentId && cats.get(k.parentId); return p ? `${p.nom} › ${k.nom}` : k.nom; };
+    const cle = new Map(lignes.map((o) => [o.id, libCat(o)]));
+    lignes = lignes.map((o, i) => [o, i]).sort((a, b) => {
+      if (a[0].date !== b[0].date) return a[0].date < b[0].date ? 1 : -1;
+      const ca = cle.get(a[0].id), cb = cle.get(b[0].id);
+      if (ca !== cb) return !ca ? 1 : !cb ? -1 : ca.localeCompare(cb, "fr");
+      return a[1] - b[1];
+    }).map((x) => x[0]);
     affichees = lignes;
     // Ne garder que les opérations encore existantes dans la sélection
     const existantes = new Set(etat.operations.map((o) => o.id));
