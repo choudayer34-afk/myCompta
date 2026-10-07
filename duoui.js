@@ -3,10 +3,18 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees } from "./duo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
+
+const dateCourte = (iso) => { const [, m, j] = String(iso || "").split("-"); return j ? `${j}/${m}` : ""; };
+const nomCat = (id) => { const c = etat.categories.find((x) => x.id === id); return c ? c.nom : ""; };
+function detail(titre, lignes) {
+  return h("details", { class: "tableau-proj" }, h("summary", {}, `${titre} (${lignes.length})`),
+    lignes.length ? h("div", {}, ...lignes.map(([d, nom, m]) => h("div", { class: "ligne-synthese" }, h("span", {}, d ? `${d} · ${nom}` : nom), h("strong", {}, euros(m)))))
+      : h("p", { class: "note" }, "Aucune dépense."));
+}
 
 function formParametres() {
   const P = params();
@@ -16,8 +24,8 @@ function formParametres() {
   const iBrutAle = h("input", { type: "text", inputmode: "decimal", value: P.brutAle ? versSaisie(P.brutAle) : "" });
   const iCoef = h("input", { type: "text", inputmode: "decimal", value: String(P.coef).replace(".", ",") });
   const corps = h("div", {},
-    champ("Prénom ou sigle (vous)", iChr), champ("Prénom ou sigle (l'autre personne)", iAle),
-    champ("Salaire brut annuel (vous)", iBrutChr), champ("Salaire brut annuel (l'autre personne)", iBrutAle),
+    champ("Prénom de la première personne (vous)", iChr), champ("Prénom de la seconde personne", iAle),
+    champ("Salaire brut annuel (première personne)", iBrutChr), champ("Salaire brut annuel (seconde personne)", iBrutAle),
     champ("Coefficient brut vers net", iCoef),
     h("p", { class: "note" }, "Net mensuel = brut annuel × coefficient ÷ 12. La répartition « prorata » suit ces revenus nets."),
     h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"), h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")));
@@ -26,7 +34,7 @@ function formParametres() {
     e.preventDefault();
     const coef = parseFloat(iCoef.value.replace(",", "."));
     const l = lot();
-    l.set("reglages", "duo", { nomChr: iChr.value.trim() || "CHR", nomAle: iAle.value.trim() || "ALE", brutChr: versCentimes(iBrutChr.value) || 0, brutAle: versCentimes(iBrutAle.value) || 0, coef: Number.isFinite(coef) && coef > 0 ? coef : 0.77 });
+    l.set("reglages", "duo", { nomChr: iChr.value.trim() || "Moi", nomAle: iAle.value.trim() || "Partenaire", brutChr: versCentimes(iBrutChr.value) || 0, brutAle: versCentimes(iBrutAle.value) || 0, coef: Number.isFinite(coef) && coef > 0 ? coef : 0.77 });
     l.envoyer(); dialogue.close();
   });
 }
@@ -75,7 +83,7 @@ export function monter(conteneur) {
     h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); maj(); } }, "›"));
   const corps = h("div", {});
   const grille = h("div", {});
-  conteneur.replaceChildren(h("h2", {}, "Duo"), nav, corps);
+  conteneur.replaceChildren(h("h2", {}, "Duo"), h("button", { type: "button", class: "sec", onclick: () => formParametres() }, "⚙️ Paramètres (salaires, noms)"), nav, corps);
 
   const montants = () => (saisie || []).map((t) => Math.abs(versCentimes(t) || 0)).filter((x) => x > 0);
   const persoDe = (cle) => Math.abs(docMois(mois)[cle] || 0);
@@ -85,7 +93,7 @@ export function monter(conteneur) {
   function dessinerGrille(nomAle) {
     const inputs = [];
     const ligne = (valeur) => {
-      const i = h("input", { type: "text", inputmode: "decimal", enterkeyhint: "next", placeholder: "Montant", value: valeur || "", autocomplete: "off", "aria-label": "Dépense de " + nomAle });
+      const i = h("input", { type: "text", inputmode: "decimal", enterkeyhint: "next", placeholder: "Montant", value: valeur || "", autocomplete: "off", "aria-label": "Dépense : " + nomAle });
       i.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
         e.preventDefault();
@@ -118,9 +126,11 @@ export function monter(conteneur) {
     const sansReglage = !P.brutChr && !P.brutAle;
     return [
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Qui doit quoi"), h("p", {}, h("strong", {}, b.depTotal ? doit : "Aucune dépense partagée ce mois-ci")),
-        sansReglage ? h("p", { class: "note" }, "Renseigne d'abord les salaires dans « Paramètres » : sans eux, la répartition est de 50/50.") : null,
+        sansReglage ? h("div", {}, h("p", { class: "note" }, "Renseigne d'abord les salaires : sans eux, la répartition est de 50/50."), h("div", { class: "actions" }, h("button", { type: "button", onclick: () => formParametres() }, "Renseigner les salaires"))) : null,
         L(`Dépenses payées par ${P.nomChr}`, euros(b.depChr)), L(`Dépenses payées par ${P.nomAle}`, euros(b.depAle)), L("Total partagé", euros(b.depTotal)),
-        L(`Part de ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part de ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),
+        detail(`Détail des dépenses : ${P.nomChr}`, operationsPartagees(etat.operations, mois).map((o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}`, -o.montant])),
+        detail(`Détail des dépenses : ${P.nomAle}`, montants().map((m, i) => ["", `Dépense ${i + 1}`, m])),
+        L(`Part : ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part : ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Provision du compte commun"),
         b.lignes.length ? h("div", {}, ...b.lignes.map((l) => h("div", { class: "ligne-synthese" }, h("span", {}, `${l.nom || "Sans nom"}${l.periode === "annuel" ? " (annuel ÷ 12)" : ""} · ${euros(l.mensuel)}`), h("small", {}, `${euros(l.chr)} / ${euros(l.ale)}`))))
           : h("p", { class: "note" }, "Aucune ligne. Ajoute tes dépenses du compte commun."),
@@ -140,9 +150,9 @@ export function monter(conteneur) {
     const P = params();
     const a = h("input", { type: "text", inputmode: "decimal", value: persoDe("persoChr") ? versSaisie(persoDe("persoChr")) : "" });
     const b = h("input", { type: "text", inputmode: "decimal", value: persoDe("persoAle") ? versSaisie(persoDe("persoAle")) : "" });
-    const c = h("div", {}, champ(`Dépenses personnelles de ${P.nomChr}`, a), champ(`Dépenses personnelles de ${P.nomAle}`, b),
+    const c = h("div", {}, champ(`Dépenses personnelles : ${P.nomChr}`, a), champ(`Dépenses personnelles : ${P.nomAle}`, b),
       h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"), h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")));
-    const { dialogue, formulaire } = modale("Dépenses personnelles de " + moisFr(mois + "-01"), c);
+    const { dialogue, formulaire } = modale("Dépenses personnelles, " + moisFr(mois + "-01"), c);
     formulaire.addEventListener("submit", (e) => { e.preventDefault(); enregistrerMois({ persoChr: Math.abs(versCentimes(a.value) || 0), persoAle: Math.abs(versCentimes(b.value) || 0) }); dialogue.close(); });
   }
 
@@ -154,9 +164,9 @@ export function monter(conteneur) {
     if (moisSaisie !== mois) { moisSaisie = mois; dessinerGrille(P.nomAle); }
     const nbOps = etat.operations.filter((o) => o.aExporter && o.montant < 0 && !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois).length;
     corps.replaceChildren(
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses de ${P.nomAle}`),
+      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses saisies : ${P.nomAle}`),
         h("p", { class: "note" }, "Un montant par ligne. Entrée passe à la ligne suivante."), grille),
-      h("p", { class: "note" }, `Dépenses de ${P.nomChr} : ${nbOps} opération(s) marquée(s) « à exporter » ce mois-ci.`),
+      h("p", { class: "note" }, `${P.nomChr} : ${nbOps} opération(s) marquée(s) « à exporter » ce mois-ci.`),
       zoneTotaux);
     majTotaux();
   }

@@ -1,7 +1,7 @@
 // Gestion à deux : recettes nettes, provision du compte commun, dépenses partagées du mois, qui doit quoi à qui (logique pure, montants en centimes).
 export const MODES = ["prorata", "5050", "chr", "ale"];
 
-export const PARAMS_DEFAUT = { nomChr: "CHR", nomAle: "ALE", brutChr: 0, brutAle: 0, coef: 0.77, lignes: [] };
+export const PARAMS_DEFAUT = { nomChr: "Moi", nomAle: "Partenaire", brutChr: 0, brutAle: 0, coef: 0.77, lignes: [] };
 
 const arrondi = Math.round;
 
@@ -27,12 +27,12 @@ export function repartLigne(l, p) {
   return { chr: c, ale: m - c };
 }
 
-// Dépenses partagées d'un mois pour la personne qui utilise l'application : opérations marquées « à exporter ».
-export function depensesPartagees(operations, mois) {
-  return operations
-    .filter((o) => o.aExporter && o.montant < 0 && !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois)
-    .reduce((s, o) => s - o.montant, 0);
-}
+// Opérations partagées d'un mois pour la personne qui utilise l'application : marquées « à exporter », classées par date.
+export const operationsPartagees = (operations, mois) => operations
+  .filter((o) => o.aExporter && o.montant < 0 && !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois)
+  .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+export const depensesPartagees = (operations, mois) => operationsPartagees(operations, mois).reduce((s, o) => s - o.montant, 0);
 
 // Bilan du mois. `ale` : liste des montants saisis par l'autre personne (centimes positifs).
 export function bilanDuo({ params, chrPartagees, ale = [], persoChr = 0, persoAle = 0 }) {
@@ -44,7 +44,7 @@ export function bilanDuo({ params, chrPartagees, ale = [], persoChr = 0, persoAl
   const depAle = ale.reduce((s, x) => s + (x || 0), 0);
   const total = chrPartagees + depAle;
   const partDepChr = arrondi(total * p.chr), partDepAle = total - partDepChr;
-  const ecart = chrPartagees - partDepChr;   // > 0 : CHR a avancé plus que sa part
+  const ecart = chrPartagees - partDepChr;   // > 0 : la première personne a avancé plus que sa part
   return { netChr, netAle, partChr: p.chr, partAle: p.ale, lignes, provChr, provAle,
     depChr: chrPartagees, depAle, depTotal: total, partDepChr, partDepAle,
     doit: ecart < 0 ? { de: "chr", montant: -ecart } : ecart > 0 ? { de: "ale", montant: ecart } : null,
