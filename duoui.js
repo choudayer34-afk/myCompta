@@ -3,7 +3,7 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees } from "./duo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, brutEnVigueur, vueBilan, evolution } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -16,25 +16,47 @@ function detail(titre, lignes) {
       : h("p", { class: "note" }, "Aucune dépense."));
 }
 
+function editeurHistorique(libelle, histoInitial) {
+  const lignes = (histoInitial || []).map((x) => ({ depuis: x.depuis || "", brut: x.brut || 0 }));
+  if (!lignes.length) lignes.push({ depuis: "", brut: 0 });
+  const zone = h("div", {});
+  const dessiner = () => zone.replaceChildren(...lignes.map((x, i) => {
+    const d = h("input", { type: "month", value: x.depuis || "", "aria-label": "À partir de" });
+    d.addEventListener("input", () => { x.depuis = d.value; });
+    const m = h("input", { type: "text", inputmode: "decimal", value: x.brut ? versSaisie(x.brut) : "", placeholder: "Brut annuel", "aria-label": "Salaire brut annuel" });
+    m.addEventListener("input", () => { x.brut = Math.abs(versCentimes(m.value) || 0); });
+    return h("div", { class: "ligne-synthese" }, d, m, lignes.length > 1 ? h("button", { type: "button", class: "sec", "aria-label": "Retirer", onclick: () => { lignes.splice(i, 1); dessiner(); } }, "✕") : null);
+  }));
+  dessiner();
+  const noeud = h("div", { class: "champ" }, h("label", {}, libelle), zone,
+    h("button", { type: "button", class: "sec", onclick: () => { lignes.push({ depuis: "", brut: 0 }); dessiner(); } }, "+ Augmentation"));
+  return { noeud, valeur: () => lignes.filter((x) => x.brut > 0).map((x) => ({ depuis: x.depuis || "", brut: x.brut })).sort((p, q) => p.depuis.localeCompare(q.depuis)) };
+}
+
 function formParametres() {
   const P = params();
   const iChr = h("input", { type: "text", value: P.nomChr, autocomplete: "off" });
   const iAle = h("input", { type: "text", value: P.nomAle, autocomplete: "off" });
-  const iBrutChr = h("input", { type: "text", inputmode: "decimal", value: P.brutChr ? versSaisie(P.brutChr) : "" });
-  const iBrutAle = h("input", { type: "text", inputmode: "decimal", value: P.brutAle ? versSaisie(P.brutAle) : "" });
+  const baseChr = (P.histoChr && P.histoChr.length) ? P.histoChr : (P.brutChr ? [{ depuis: "", brut: P.brutChr }] : []);
+  const baseAle = (P.histoAle && P.histoAle.length) ? P.histoAle : (P.brutAle ? [{ depuis: "", brut: P.brutAle }] : []);
+  const eChr = editeurHistorique("Salaire brut annuel : première personne", baseChr);
+  const eAle = editeurHistorique("Salaire brut annuel : seconde personne", baseAle);
   const iCoef = h("input", { type: "text", inputmode: "decimal", value: String(P.coef).replace(".", ",") });
   const corps = h("div", {},
     champ("Prénom de la première personne (vous)", iChr), champ("Prénom de la seconde personne", iAle),
-    champ("Salaire brut annuel (première personne)", iBrutChr), champ("Salaire brut annuel (seconde personne)", iBrutAle),
+    eChr.noeud, eAle.noeud,
+    h("p", { class: "note" }, "Ajoute une ligne à chaque changement de salaire, avec le mois à partir duquel il s'applique. Une première ligne sans date vaut « depuis le début »."),
     champ("Coefficient brut vers net", iCoef),
-    h("p", { class: "note" }, "Net mensuel = brut annuel × coefficient ÷ 12. La répartition « prorata » suit ces revenus nets."),
+    h("p", { class: "note" }, "Net mensuel = brut annuel × coefficient ÷ 12. La répartition « prorata » suit ces revenus nets, mois par mois."),
     h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"), h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")));
   const { dialogue, formulaire } = modale("Paramètres du duo", corps);
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const coef = parseFloat(iCoef.value.replace(",", "."));
+    const hc = eChr.valeur(), ha = eAle.valeur();
     const l = lot();
-    l.set("reglages", "duo", { nomChr: iChr.value.trim() || "Moi", nomAle: iAle.value.trim() || "Partenaire", brutChr: versCentimes(iBrutChr.value) || 0, brutAle: versCentimes(iBrutAle.value) || 0, coef: Number.isFinite(coef) && coef > 0 ? coef : 0.77 });
+    l.set("reglages", "duo", { nomChr: iChr.value.trim() || "Moi", nomAle: iAle.value.trim() || "Partenaire", histoChr: hc, histoAle: ha,
+      brutChr: hc.length ? hc[hc.length - 1].brut : 0, brutAle: ha.length ? ha[ha.length - 1].brut : 0, coef: Number.isFinite(coef) && coef > 0 ? coef : 0.77 });
     l.envoyer(); dialogue.close();
   });
 }
@@ -54,7 +76,9 @@ function formLignes() {
       per.addEventListener("change", () => { x.periode = per.value; });
       const mode = selecteur(modes, x.mode || "prorata");
       mode.addEventListener("change", () => { x.mode = mode.value; });
-      return h("div", { class: "carte" }, nom, mt, per, mode,
+      const cr = h("input", { type: "checkbox", checked: x.credit ? true : null });
+      cr.addEventListener("change", () => { x.credit = cr.checked; });
+      return h("div", { class: "carte" }, nom, mt, per, mode, h("label", { class: "case" }, cr, "Crédit (compte dans le taux d'endettement)"),
         h("button", { type: "button", class: "danger", onclick: () => { lignes.splice(i, 1); dessiner(); } }, "Retirer cette ligne"));
     }));
   }
@@ -68,14 +92,14 @@ function formLignes() {
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
-    l.set("reglages", "duo", { lignes: lignes.filter((x) => (x.nom || "").trim() || x.montant).map((x) => ({ nom: (x.nom || "").trim(), montant: x.montant || 0, periode: x.periode || "mensuel", mode: x.mode || "prorata" })) });
+    l.set("reglages", "duo", { lignes: lignes.filter((x) => (x.nom || "").trim() || x.montant).map((x) => ({ nom: (x.nom || "").trim(), montant: x.montant || 0, periode: x.periode || "mensuel", mode: x.mode || "prorata", credit: !!x.credit })) });
     l.envoyer(); dialogue.close();
   });
 }
 
 export function monter(conteneur) {
   let mois = aujourdhui().slice(0, 7);
-  let saisie = null, moisSaisie = null;   // montants de l'autre personne (texte), conservés pendant la frappe
+  let saisie = null, moisSaisie = null, vueQui = "tous";   // montants de l'autre personne (texte), conservés pendant la frappe
   const titre = h("strong", { class: "mois-budget" });
   const nav = h("div", { class: "nav-mois" },
     h("button", { type: "button", class: "sec", "aria-label": "Mois précédent", onclick: () => { mois = moisDecale(mois, -1); maj(); } }, "‹"),
@@ -117,7 +141,7 @@ export function monter(conteneur) {
 
   function bilanNoeuds() {
     const P = params();
-    const b = bilanDuo({ params: P, chrPartagees: depensesPartagees(etat.operations, mois), ale: montants(), persoChr: persoDe("persoChr"), persoAle: persoDe("persoAle") });
+    const b = bilanDuo({ params: P, chrPartagees: depensesPartagees(etat.operations, mois), ale: montants(), persoChr: persoDe("persoChr"), persoAle: persoDe("persoAle"), mois });
     const pc = (x) => Math.round(x * 100) + " %";
     const L = (a, v, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, v));
     const doit = b.doit
@@ -142,7 +166,34 @@ export function monter(conteneur) {
         L("Part des dépenses partagées", `${euros(b.partDepChr)} · ${euros(b.partDepAle)}`),
         L("Dépenses personnelles", `${euros(persoDe("persoChr"))} · ${euros(persoDe("persoAle"))}`),
         L("Restant", `${euros(b.restantChr)} · ${euros(b.restantAle)}`, b.restantChr < 0 || b.restantAle < 0 ? "montant neg" : "montant pos"),
-        h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formPerso() }, "Dépenses personnelles du mois"), h("button", { type: "button", class: "sec", onclick: () => formParametres() }, "Paramètres")))
+        h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formPerso() }, "Dépenses personnelles du mois"), h("button", { type: "button", class: "sec", onclick: () => formParametres() }, "Paramètres"))),
+      ...cartesPouvoirAchat(P, b)
+    ];
+  }
+
+
+  function cartesPouvoirAchat(P, b) {
+    const noms = { chr: P.nomChr, ale: P.nomAle, tous: "Ensemble" };
+    const choix = h("div", { class: "modes-bilan" }, ...["chr", "ale", "tous"].map((q) => h("button", { type: "button", class: "sec" + (vueQui === q ? " actif-filtre" : ""), onclick: () => { vueQui = q; majTotaux(); } }, noms[q])));
+    const v = vueBilan(b, vueQui);
+    const ev = evolution({ params: P, mois, qui: vueQui, n: 12, decale: moisDecale });
+    const prem = ev[0], der = ev[ev.length - 1];
+    const pct = (a, z) => (a > 0 ? `${z >= a ? "+" : "−"}${Math.abs(Math.round((z - a) / a * 1000) / 10).toString().replace(".", ",")} %` : "—");
+    const L = (a, val, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, val));
+    const taux = v.tauxEndettement == null ? "—" : `${Math.round(v.tauxEndettement * 1000) / 10} %`.replace(".", ",");
+    return [
+      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Endettement et reste à vivre"), choix,
+        L("Revenu net mensuel", euros(v.net)),
+        L("Provision du compte commun", euros(v.prov)),
+        L("Reste à vivre (revenu net − provision)", euros(v.resteAVivre), v.resteAVivre < 0 ? "montant neg" : "montant pos"),
+        L("Crédits (lignes marquées « crédit »)", euros(v.credit)),
+        L("Taux d'endettement", taux, v.tauxEndettement != null && v.tauxEndettement > 0.35 ? "montant neg" : ""),
+        h("p", { class: "note" }, v.credit ? "Taux d'endettement = crédits ÷ revenu net. Les banques retiennent en général 35 % comme repère." : "Aucune ligne n'est marquée « crédit » : dans « Modifier les lignes », coche « crédit » sur le prêt immobilier et les assurances de prêt.")),
+      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Évolution sur 12 mois : ${noms[vueQui]}`),
+        L("Revenu net", `${euros(prem.net)} → ${euros(der.net)} (${pct(prem.net, der.net)})`),
+        L("Reste à vivre", `${euros(prem.resteAVivre)} → ${euros(der.resteAVivre)} (${pct(prem.resteAVivre, der.resteAVivre)})`),
+        detail("Mois par mois", ev.slice().reverse().map((x) => [moisFr(x.mois + "-01"), `net ${euros(x.net)} · reste à vivre`, x.resteAVivre])),
+        h("p", { class: "note" }, "Calculé avec le salaire en vigueur chaque mois et les lignes de provision actuelles."))
     ];
   }
 

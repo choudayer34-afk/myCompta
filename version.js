@@ -1,2 +1,2 @@
 // Numéro de version affiché dans l'application (à garder identique à VERSION dans sw.js).
-export const VERSION = "v66";
+export const VERSION = "v67";

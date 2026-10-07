@@ -1,7 +1,18 @@
 // Gestion à deux : recettes nettes, provision du compte commun, dépenses partagées du mois, qui doit quoi à qui (logique pure, montants en centimes).
 export const MODES = ["prorata", "5050", "chr", "ale"];
 
-export const PARAMS_DEFAUT = { nomChr: "Moi", nomAle: "Partenaire", brutChr: 0, brutAle: 0, coef: 0.77, lignes: [] };
+export const PARAMS_DEFAUT = { nomChr: "Moi", nomAle: "Partenaire", brutChr: 0, brutAle: 0, histoChr: [], histoAle: [], coef: 0.77, lignes: [] };
+
+// Salaire brut annuel en vigueur un mois donné ("AAAA-MM") : dernière ligne de l'historique dont la date est atteinte
+// (une date vide signifie « depuis toujours »). Avant la première ligne, on garde la première valeur.
+export function brutEnVigueur(histo, brutDefaut, mois) {
+  const h = [...(histo || [])].filter((x) => x && x.brut >= 0).sort((a, b) => String(a.depuis || "").localeCompare(String(b.depuis || "")));
+  if (!h.length) return brutDefaut || 0;
+  if (!mois) return h[h.length - 1].brut;
+  let v = h[0].brut;
+  for (const x of h) if (!x.depuis || x.depuis <= mois) v = x.brut;
+  return v;
+}
 
 const arrondi = Math.round;
 
@@ -35,18 +46,37 @@ export const operationsPartagees = (operations, mois) => operations
 export const depensesPartagees = (operations, mois) => operationsPartagees(operations, mois).reduce((s, o) => s - o.montant, 0);
 
 // Bilan du mois. `ale` : liste des montants saisis par l'autre personne (centimes positifs).
-export function bilanDuo({ params, chrPartagees, ale = [], persoChr = 0, persoAle = 0 }) {
+export function bilanDuo({ params, chrPartagees, ale = [], persoChr = 0, persoAle = 0, mois = null }) {
   const P = { ...PARAMS_DEFAUT, ...params };
-  const netChr = netMensuel(P.brutChr, P.coef), netAle = netMensuel(P.brutAle, P.coef);
+  const netChr = netMensuel(brutEnVigueur(P.histoChr, P.brutChr, mois), P.coef), netAle = netMensuel(brutEnVigueur(P.histoAle, P.brutAle, mois), P.coef);
   const p = parts(netChr, netAle);
-  let provChr = 0, provAle = 0;
-  const lignes = (P.lignes || []).map((l) => { const r = repartLigne(l, p); provChr += r.chr; provAle += r.ale; return { ...l, mensuel: mensualise(l), ...r }; });
+  let provChr = 0, provAle = 0, credChr = 0, credAle = 0;
+  const lignes = (P.lignes || []).map((l) => { const r = repartLigne(l, p); provChr += r.chr; provAle += r.ale; if (l.credit) { credChr += r.chr; credAle += r.ale; } return { ...l, mensuel: mensualise(l), ...r }; });
   const depAle = ale.reduce((s, x) => s + (x || 0), 0);
   const total = chrPartagees + depAle;
   const partDepChr = arrondi(total * p.chr), partDepAle = total - partDepChr;
   const ecart = chrPartagees - partDepChr;   // > 0 : la première personne a avancé plus que sa part
-  return { netChr, netAle, partChr: p.chr, partAle: p.ale, lignes, provChr, provAle,
+  return { netChr, netAle, partChr: p.chr, partAle: p.ale, lignes, provChr, provAle, credChr, credAle,
     depChr: chrPartagees, depAle, depTotal: total, partDepChr, partDepAle,
     doit: ecart < 0 ? { de: "chr", montant: -ecart } : ecart > 0 ? { de: "ale", montant: ecart } : null,
     restantChr: netChr - provChr - partDepChr - persoChr, restantAle: netAle - provAle - partDepAle - persoAle };
+}
+
+// Vue « Moi », « Partenaire » ou « Ensemble » d'un bilan : revenu net, provision (charges fixes du compte commun), crédits.
+export function vueBilan(b, qui) {
+  const net = qui === "chr" ? b.netChr : qui === "ale" ? b.netAle : b.netChr + b.netAle;
+  const prov = qui === "chr" ? b.provChr : qui === "ale" ? b.provAle : b.provChr + b.provAle;
+  const cred = qui === "chr" ? b.credChr : qui === "ale" ? b.credAle : b.credChr + b.credAle;
+  return { net, prov, credit: cred, resteAVivre: net - prov, tauxEndettement: net > 0 ? cred / net : null };
+}
+
+// Évolution sur les `n` derniers mois (mois courant compris) : [{ mois, net, resteAVivre }]
+export function evolution({ params, mois, qui, n = 12, decale }) {
+  const serie = [];
+  for (let k = n - 1; k >= 0; k--) {
+    const m = decale(mois, -k);
+    const v = vueBilan(bilanDuo({ params, chrPartagees: 0, mois: m }), qui);
+    serie.push({ mois: m, net: v.net, resteAVivre: v.resteAVivre });
+  }
+  return serie;
 }
