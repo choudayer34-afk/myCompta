@@ -67,7 +67,7 @@ export function monter(conteneur) {
     const majListe = () => {
       const q = iFiltre.value.trim().toLowerCase();
       const vus = candidates.filter((o) => !q || `${o.nom} ${euros(o.montant)}`.toLowerCase().includes(q)).slice(0, 40);
-      liste.replaceChildren(...(vus.length ? vus.map((o) => h("button", { type: "button", class: "ligne-eco bouton-ligne", onclick: () => {
+      liste.replaceChildren(...(vus.length ? vus.map((o) => h("button", { type: "button", class: "ligne-eco bouton-choix", onclick: () => {
         it.mode = "op"; it.opId = o.id; it.pointer = true; it.corriger = o.montant !== it.ligne.montant; fermer(); afficher();
       } },
         h("div", { class: "eco-texte" }, h("strong", {}, o.nom), h("small", {}, dateFr(o.date) + (o.montant !== it.ligne.montant ? " · montant différent du relevé" : ""))),

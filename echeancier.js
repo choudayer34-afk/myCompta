@@ -3,6 +3,7 @@ import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee } from ".
 import { euros, versCentimes, versSaisie, dateFr, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { NATURES } from "./operations.js";
+import { libelleCategorie } from "./recherche.js";
 
 // Crée les opérations « en cours » des échéances arrivées à terme. Sans risque de doublon : identifiants déterministes.
 // Retourne { nb, fini } ; `fini` se résout quand le serveur a confirmé (jamais hors connexion).
@@ -117,7 +118,8 @@ export function monter(conteneur) {
         noeuds.push(h("button", { class: "ligne bouton-ligne" + (fin ? " terminee" : ""), style: `border-left-color:${(comptes.get(cid) || {}).couleur || "transparent"}`, onclick: () => formPlanifiee(etat.planifiees.find((x) => x.id === p.id)) },
           h("div", { class: "gauche" },
             h("strong", {}, (p.virementCompteId ? "⇄ " : "") + p.nom),
-            h("small", {}, `${fin ? "terminée" : dateFr(p.prochaine)} · ${libelleFrequence(p.frequence)}${dest ? " · vers " + dest : ""}`)),
+            h("small", {}, `${fin ? "terminée" : dateFr(p.prochaine)} · ${libelleFrequence(p.frequence)}${dest ? " · vers " + dest : ""}`),
+            h("small", { class: "cat-planifiee" }, p.virementCompteId ? "Virement" : (libelleCategorie(p.categorieId, etat.categories) || "Sans catégorie"))),
           h("div", { class: "droite" },
             h("span", { class: "montant " + (p.montant < 0 ? "neg" : "pos") }, euros(p.montant)))));
       }

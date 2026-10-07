@@ -458,4 +458,5 @@ label.ligne-eco { cursor:pointer; }
 .etat-ligne { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:6px; padding-left:10px; border-left:3px solid var(--bord); }
 .etat-ligne input[type=text] { width:100%; box-sizing:border-box; }
 .etat-ligne .case.avert { color:var(--alerte); }
-.bouton-ligne { width:100%; text-align:left; background:none; border:0; color:inherit; font:inherit; cursor:pointer; }
+.bouton-choix { width:100%; text-align:left; background:none; border:0; color:inherit; font:inherit; cursor:pointer; }
+.cat-planifiee { color:var(--accent); }
