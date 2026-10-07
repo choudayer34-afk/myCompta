@@ -4,6 +4,7 @@ import { euros, aujourdhui, moisFr } from "./format.js";
 import { h, modale, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
 import { comptesSuivis } from "./budgets.js";
+import { projection, moyennesCategories } from "./previsions.js";
 import { analyseEconomies, detecterAbonnements, economieSiReduit, racines, usageSuggere, USAGES } from "./economies.js";
 
 export function formClassement() {
@@ -29,7 +30,7 @@ export function formClassement() {
 }
 
 export function monter(conteneur) {
-  let mois = aujourdhui().slice(0, 7);
+  let mois = aujourdhui().slice(0, 7), horizonInd = 6;
   const titre = h("strong", { class: "mois-budget" });
   const nav = h("div", { class: "nav-mois" },
     h("button", { type: "button", class: "sec", "aria-label": "Mois précédent", onclick: () => { mois = moisDecale(mois, -1); maj(); } }, "‹"),
@@ -62,6 +63,33 @@ export function monter(conteneur) {
         (a.moyPart != null ? ` (moyenne des mois précédents : ${a.moyPart} %, soit ${euros(a.moyConfort)}).` : ".")) : h("p", { class: "note" }, "Aucune dépense ce mois-ci."),
       h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => pret() && formClassement() },
         a.nonClassees ? `Classer mes catégories (${a.nonClassees} à classer)` : "Classer mes catégories"))));
+
+
+    // Si je ne dépense que l'indispensable
+    {
+      const auj = aujourdhui();
+      const moyCat = moyennesCategories({ ...p, mois: auj.slice(0, 7) }).filter((m) => m.categorieId && m.moyenne > 0);
+      const confort = moyCat.filter((m) => m.usage === "confort").reduce((t, m) => t + m.moyenne, 0);
+      const essentiel = moyCat.filter((m) => m.usage === "essentiel").reduce((t, m) => t + m.moyenne, 0);
+      const nonDefini = moyCat.filter((m) => !m.usage).reduce((t, m) => t + m.moyenne, 0);
+      const pr = projection({ ...p, planifiees: etat.planifiees, aujourdhui: auj, horizon: horizonInd, economieMensuelle: confort });
+      const bouton = (n) => h("button", { type: "button", class: "sec" + (horizonInd === n ? " actif-filtre" : ""), onclick: () => { horizonInd = n; maj(); } }, `${n} mois`);
+      const contenu = [h("h3", { class: "titre-carte" }, "Si je ne dépense que l'indispensable"), h("div", { class: "modes-bilan" }, bouton(3), bouton(6), bouton(12))];
+      if (!confort) contenu.push(h("p", { class: "note" }, essentiel || nonDefini ? "Aucune dépense de confort sur les derniers mois : rien à retirer. Vérifie le classement de tes catégories." : "Classe d'abord tes catégories en « essentielles » ou « confort » avec le bouton ci-dessus."));
+      else if (pr.insuffisant) contenu.push(h("p", { class: "note" }, "Pas assez de données pour projeter."));
+      else {
+        const d = pr.points[pr.points.length - 1];
+        contenu.push(
+          h("div", { class: "ligne-synthese" }, h("span", {}, "Dépenses de confort retirées"), h("strong", { class: "montant pos" }, euros(confort) + " / mois")),
+          h("div", { class: "ligne-synthese" }, h("span", {}, "Dépenses essentielles conservées"), h("strong", { class: "montant neg" }, euros(-essentiel) + " / mois")),
+          nonDefini ? h("div", { class: "ligne-synthese" }, h("span", {}, "Catégories non classées (conservées)"), h("strong", { class: "montant neg" }, euros(-nonDefini) + " / mois")) : null,
+          h("div", { class: "ligne-synthese" }, h("span", {}, `Solde dans ${horizonInd} mois, rythme actuel`), h("strong", {}, euros(d.central))),
+          h("div", { class: "ligne-synthese" }, h("span", {}, `Solde dans ${horizonInd} mois, indispensable seul`), h("strong", { class: "montant pos" }, euros(d.avec))),
+          h("p", {}, `Soit ${euros(d.avec - d.central)} de plus sur ${horizonInd} mois.`),
+          h("p", { class: "note" }, "Calculé sur la moyenne des 3 derniers mois pour les comptes suivis, échéancier compris. Les opérations sans catégorie et les catégories non classées sont conservées."));
+      }
+      noeuds.push(h("div", { class: "carte" }, ...contenu));
+    }
 
     // Plus gros postes de confort
     if (a.postesConfort.length) {
