@@ -45,7 +45,7 @@ export function monter(conteneur) {
     if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const p = { categories: etat.categories, operations: etat.operations, comptes: etat.comptes, comptesIds: comptesSuivis() };
     const a = analyseEconomies({ ...p, mois });
-    const ab = detecterAbonnements({ ...p, aujourdhui: aujourdhui() });
+    const ab = detecterAbonnements({ ...p, aujourdhui: aujourdhui(), planifiees: etat.planifiees });
     const noeuds = [];
 
     // Confort ou essentiel
@@ -79,12 +79,14 @@ export function monter(conteneur) {
         h("span", { class: "montant neg" }, `+${euros(l.ecart)}`)))));
     }
     // Abonnements
-    noeuds.push(h("h3", { class: "groupe" }, "Abonnements détectés"));
-    if (!ab.liste.length) noeuds.push(h("p", { class: "note" }, "Aucune dépense régulière détectée (même nom, même montant, au moins 3 mois de suite)."));
+    noeuds.push(h("h3", { class: "groupe" }, "Abonnements"));
+    if (!ab.liste.length) noeuds.push(h("p", { class: "note" }, "Aucun abonnement : ni dépense planifiée dans l'échéancier, ni dépense régulière détectée (même nom, même montant, au moins 3 mois de suite)."));
     else {
       noeuds.push(h("div", { class: "carte-jour" }, ab.liste.map((x) => h("div", { class: "ligne-eco" },
         h("div", { class: "eco-texte" }, h("strong", {}, x.nom),
-          h("small", {}, `${euros(x.annuel)} par an` + (x.ancien ? ` · passé de ${euros(x.ancien)} à ${euros(x.mensuel)}` : ""))),
+          h("small", {}, x.source === "echeancier"
+            ? `${euros(x.montantReel)} ${x.periode} · ${euros(x.annuel)} par an · échéancier`
+            : `${euros(x.annuel)} par an` + (x.ancien ? ` · passé de ${euros(x.ancien)} à ${euros(x.mensuel)}` : ""))),
         h("span", { class: "montant" }, euros(x.mensuel) + "/mois")))));
       noeuds.push(h("p", { class: "note" }, `Tes abonnements coûtent ${euros(ab.mensuel)} par mois, soit ${euros(ab.annuel)} par an. Seul toi sais si tu utilises encore chacun d'eux.`));
     }

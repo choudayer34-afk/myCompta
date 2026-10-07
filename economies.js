@@ -22,6 +22,7 @@ export function racines(categories) {
   return categories.filter((c) => !c.parentId || !parId.get(c.parentId));
 }
 
+const FACTEUR = { mensuel: { parAn: 12, libelle: "chaque mois" }, "2mois": { parAn: 6, libelle: "tous les 2 mois" }, trimestriel: { parAn: 4, libelle: "chaque trimestre" }, semestriel: { parAn: 2, libelle: "chaque semestre" }, annuel: { parAn: 1, libelle: "chaque année" }, hebdo: { parAn: 52, libelle: "chaque semaine" }, "2semaines": { parAn: 26, libelle: "toutes les 2 semaines" } };
 const moyenne = (a) => (a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length) : 0);
 
 export function analyseEconomies({ categories, operations, comptes, comptesIds = [], mois }) {
@@ -58,7 +59,7 @@ export const economieSiReduit = (montant, pct = 20) => Math.round((montant * pct
 
 // Abonnements : même nom, une dépense par mois sur au moins 3 mois consécutifs jusqu'au mois dernier ou au mois courant,
 // montants proches (± 8 % ou 1 €) et jours du mois proches (± 7 jours).
-export function detecterAbonnements({ operations, comptes, comptesIds = [], aujourdhui }) {
+export function detecterAbonnements({ operations, comptes, comptesIds = [], aujourdhui, planifiees = [] }) {
   const suivis = new Map(comptes.filter((c) => (comptesIds.length ? comptesIds.includes(c.id) : !c.archive)).map((c) => [c.id, c]));
   const groupes = new Map();
   const moisCourant = aujourdhui.slice(0, 7);
@@ -90,6 +91,22 @@ export function detecterAbonnements({ operations, comptes, comptesIds = [], aujo
     res.push({ nom: g.nom, mensuel: dernier, annuel: dernier * 12, mois: serie.length,
       ancien: Math.abs(premier - dernier) > dernier * 0.01 ? premier : null, categorieId: serie[serie.length - 1].categorieId });
   }
+  // Dépenses planifiées dans l'échéancier : source la plus sûre (elles remplacent une détection de même nom)
+  const clePlan = new Set();
+  const prevues = [];
+  for (const p of planifiees) {
+    if (!suivis.has(p.compteId) || !(p.montant < 0) || p.virementCompteId || p.nature === "virement") continue;
+    if (p.dateFin && p.dateFin < aujourdhui) continue;
+    const f = FACTEUR[p.frequence];
+    if (!f) continue;
+    const reel = -Math.round(p.montant * partCompte(suivis.get(p.compteId)) / 100);
+    const cle = sa(p.nom).replace(/[0-9]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+    clePlan.add(cle);
+    prevues.push({ nom: p.nom, mensuel: Math.round(reel * f.parAn / 12), annuel: Math.round(reel * f.parAn), mois: null, ancien: null,
+      categorieId: p.categorieId || null, source: "echeancier", montantReel: reel, periode: f.libelle });
+  }
+  const gardees = res.filter((x) => !clePlan.has(sa(x.nom).replace(/[0-9]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim()));
+  res.length = 0; res.push(...prevues, ...gardees);
   res.sort((a, b) => b.mensuel - a.mensuel);
   return { liste: res, mensuel: res.reduce((s, x) => s + x.mensuel, 0), annuel: res.reduce((s, x) => s + x.annuel, 0) };
 }
