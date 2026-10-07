@@ -91,14 +91,15 @@ export function monter(conteneur) {
     noeuds.push(h("div", { class: "modes-bilan" }, bouton(3), bouton(6), bouton(12)));
 
     if (p.insuffisant) {
-      noeuds.push(h("div", { class: "carte" }, h("p", {}, "Pas assez d'historique : la projection demande au moins 2 mois complets d'opérations sur les comptes pris en compte.")));
+      noeuds.push(h("div", { class: "carte" }, h("p", {}, "Rien à projeter : ni échéance dans l'échéancier, ni opération sur les mois précédents pour les comptes pris en compte.")));
     } else {
       // Capacité d'épargne
       noeuds.push(h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Capacité d'épargne mensuelle"),
-        h("div", { class: "ligne-synthese" }, h("span", {}, "Revenus moyens"), h("strong", { class: "montant pos" }, euros(p.moyRevenus))),
-        h("div", { class: "ligne-synthese" }, h("span", {}, "Dépenses moyennes"), h("strong", { class: "montant neg" }, euros(-p.moyDepenses))),
-        h("div", { class: "ligne-synthese" }, h("span", {}, "Reste en moyenne"), h("strong", { class: "montant " + (p.moyNet < 0 ? "neg" : "pos") }, euros(p.moyNet))),
-        h("p", { class: "note" }, `Moyenne des ${p.nbMois} derniers mois complets, hors virements, ajustements de solde et échéances trimestrielles, semestrielles ou annuelles (comptées aux dates prévues).`)));
+        h("div", { class: "ligne-synthese" }, h("span", {}, "Échéancier : recettes"), h("strong", { class: "montant pos" }, euros(p.echeancierRevenus))),
+        h("div", { class: "ligne-synthese" }, h("span", {}, "Échéancier : dépenses"), h("strong", { class: "montant neg" }, euros(-p.echeancierDepenses))),
+        h("div", { class: "ligne-synthese" }, h("span", {}, "Hors échéancier (moyenne)"), h("strong", { class: "montant " + (p.moyNet < 0 ? "neg" : "pos") }, euros(p.moyNet))),
+        h("div", { class: "ligne-synthese" }, h("span", {}, "Reste en moyenne"), h("strong", { class: "montant " + (p.echeancierRevenus - p.echeancierDepenses + p.moyNet < 0 ? "neg" : "pos") }, euros(p.echeancierRevenus - p.echeancierDepenses + p.moyNet))),
+        h("p", { class: "note" }, `Échéancier : moyenne mensuelle des échéances prévues sur ${horizon} mois (salaire, loyer, abonnements…), hors virements. Hors échéancier : moyenne des ${p.nbMois || 0} dernier(s) mois complet(s) pour les dépenses et recettes qui ne viennent pas de l'échéancier.` + (p.nbMois < 2 ? " L'historique est court : la fourchette entre scénarios sera étroite." : ""))));
 
       // Projection
       const dernier = p.points[p.points.length - 1];
@@ -119,8 +120,8 @@ export function monter(conteneur) {
         h("p", {}, `Solde en cours aujourd'hui : ${euros(p.solde)}. Dans ${horizon} mois (${moisLong(dernier.mois)}) : environ `, h("strong", {}, euros(dernier.central)), ` (prudent ${euros(dernier.prudent)}, favorable ${euros(dernier.favorable)}).`),
         p.premierNegatif ? h("p", { class: "avert-proj" }, `Dans le scénario prudent, le solde passe sous zéro en ${moisLong(p.premierNegatif.mois)}.`) : null,
         svg, legende, tip, tableau,
-        p.ponctuels.length ? h("p", { class: "note" }, "Échéances ponctuelles prévues : " + p.ponctuels.map((x) => `${x.nom} ${euros(x.montant)} (${dateFr(x.date)})`).join(" · ") + ".") : null,
-        h("p", { class: "note" }, "Estimation fondée sur les mois passés : central = flux moyen, prudent = mois le plus défavorable, favorable = mois le plus favorable. Une dépense exceptionnelle n'y est pas prévue.")));
+        p.ponctuels.length ? h("p", { class: "note" }, "Échéances non mensuelles prévues : " + p.ponctuels.map((x) => `${x.nom} ${euros(x.montant)} (${dateFr(x.date)})`).join(" · ") + ".") : null,
+        h("p", { class: "note" }, "Les échéances de l'échéancier sont lues à leurs dates. Pour le reste : central = flux moyen, prudent = mois le plus défavorable, favorable = mois le plus favorable. Une dépense exceptionnelle n'y est pas prévue.")));
 
       // Simulation
       const sCat = selecteur([["", "Aucune"], ...moyCat.map((m) => [m.categorieId, `${nomCat(m.categorieId)} (moy. ${euros(m.moyenne)}/mois)`])], catId, { "aria-label": "Catégorie à réduire" });

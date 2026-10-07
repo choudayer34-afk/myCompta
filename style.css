@@ -487,3 +487,4 @@ label.ligne-eco { cursor:pointer; }
 .bloc-objectif:first-of-type { border-top:0; }
 .bloc-objectif small { color:var(--discret); }
 .bloc-objectif small.avert-proj { color:var(--alerte); }
+.eco-gain { color:var(--accent); }

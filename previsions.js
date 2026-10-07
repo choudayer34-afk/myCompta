@@ -5,22 +5,31 @@ import { echeancesDues } from "./planning.js";
 import { repartitionDepenses } from "./bilancalc.js";
 import { racines } from "./economies.js";
 
-const RARES = new Set(["trimestriel", "semestriel", "annuel"]);   // échéances ponctuelles, traitées à part
+const RARES = new Set(["trimestriel", "semestriel", "annuel"]);   // échéances non mensuelles, listées à part
 const estVirement = (o) => o.virementId || o.nature === "virement";
 const ajustement = (o) => o.nom === "Ajustement de solde";
 const suivisDe = (comptes, comptesIds) => new Map(comptes.filter((c) => (comptesIds.length ? comptesIds.includes(c.id) : !c.archive)).map((c) => [c.id, c]));
+const cleNom = (n) => String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[0-9]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
 
-// Revenus, dépenses et net de chaque mois complet précédant `mois` (hors virements, ajustements et échéances ponctuelles).
+// Opérations déjà couvertes par l'échéancier : liées à une échéance, ou de même nom et même compte (opérations importées).
+function couvertesParEcheancier(planifiees) {
+  const ids = new Set(planifiees.map((p) => p.id));
+  const noms = new Set(planifiees.filter((p) => !p.virementCompteId).map((p) => `${p.compteId}|${cleNom(p.nom)}`));
+  return (o) => (o.planifieeId && ids.has(o.planifieeId)) || noms.has(`${o.compteId}|${cleNom(o.nom)}`);
+}
+
+// Revenus, dépenses et net de chaque mois complet précédant `mois`, hors virements, ajustements et opérations de l'échéancier
+// (l'échéancier est lu directement pour l'avenir).
 export function fluxMensuels({ operations, comptes, comptesIds = [], planifiees = [], mois, nb = 3 }) {
   const suivis = suivisDe(comptes, comptesIds);
-  const rares = new Set(planifiees.filter((p) => RARES.has(p.frequence)).map((p) => p.id));
+  const couverte = couvertesParEcheancier(planifiees);
   const res = [];
   for (let n = nb; n >= 1; n--) {
     const ym = moisDecale(mois, -n);
     const [debut, fin] = bornesMois(ym);
     let revenus = 0, depenses = 0, nbOps = 0;
     for (const o of operations) {
-      if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || estVirement(o) || ajustement(o) || (o.planifieeId && rares.has(o.planifieeId))) continue;
+      if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || estVirement(o) || ajustement(o) || couverte(o)) continue;
       const v = Math.round(o.montant * partCompte(suivis.get(o.compteId)) / 100);
       if (v >= 0) revenus += v; else depenses += -v;
       nbOps++;
@@ -33,34 +42,35 @@ export function fluxMensuels({ operations, comptes, comptesIds = [], planifiees 
 const moy = (a) => (a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length) : 0);
 
 // Projection du solde en cours à la fin de chacun des `horizon` prochains mois.
-// central = flux moyen ; prudent = mois le plus défavorable ; favorable = mois le plus favorable ; avec = central + économie mensuelle.
+// Échéancier : toutes les échéances à venir sont lues aux dates prévues (salaire, loyer, abonnements…).
+// Hors échéancier : central = flux moyen ; prudent = mois le plus défavorable ; favorable = mois le plus favorable.
 export function projection({ operations, comptes, comptesIds = [], planifiees = [], aujourdhui, horizon = 6, economieMensuelle = 0 }) {
   const mois = aujourdhui.slice(0, 7);
   const suivis = suivisDe(comptes, comptesIds);
   const flux = fluxMensuels({ operations, comptes, comptesIds, planifiees, mois });
-  if (flux.length < 2) return { insuffisant: true };
-  const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);
-  const nets = flux.map((f) => f.net);
-  const moyNet = moy(nets), minNet = Math.min(...nets), maxNet = Math.max(...nets);
-  // Échéances ponctuelles à venir (trimestrielles, semestrielles, annuelles)
   const fin = bornesMois(moisDecale(mois, horizon))[1];
-  const ponctuels = [];
-  for (const p of planifiees) {
-    if (!RARES.has(p.frequence) || p.virementCompteId || p.nature === "virement" || !suivis.has(p.compteId) || !p.prochaine) continue;
-    for (const d of echeancesDues(p, fin).dates) {
-      if (d <= aujourdhui) continue;
-      ponctuels.push({ date: d, nom: p.nom, montant: Math.round(p.montant * partCompte(suivis.get(p.compteId)) / 100) });
-    }
-  }
   const indice = (d) => { const [a, m] = d.slice(0, 7).split("-").map(Number); const [a0, m0] = mois.split("-").map(Number); return Math.max(1, (a - a0) * 12 + (m - m0)); };
+  // Échéances à venir (celles déjà créées sont dans le solde en cours ; « prochaine » est la première pas encore créée)
+  const prevues = [];
+  for (const p of planifiees) {
+    if (!p.prochaine || !p.frequence || p.virementCompteId || p.nature === "virement" || !suivis.has(p.compteId)) continue;
+    for (const d of echeancesDues(p, fin).dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: Math.round(p.montant * partCompte(suivis.get(p.compteId)) / 100) });
+  }
+  if (!flux.length && !prevues.length) return { insuffisant: true };
+  const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);
+  const nets = flux.length ? flux.map((f) => f.net) : [0];
+  const moyNet = moy(nets), minNet = Math.min(...nets), maxNet = Math.max(...nets);
   const points = [{ k: 0, mois, central: solde, prudent: solde, favorable: solde, avec: solde }];
   for (let k = 1; k <= horizon; k++) {
-    const cumul = ponctuels.filter((x) => indice(x.date) <= k).reduce((s, x) => s + x.montant, 0);
+    const cumul = prevues.filter((x) => indice(x.date) <= k).reduce((s, x) => s + x.montant, 0);
     points.push({ k, mois: moisDecale(mois, k), central: solde + k * moyNet + cumul, prudent: solde + k * minNet + cumul, favorable: solde + k * maxNet + cumul, avec: solde + k * (moyNet + economieMensuelle) + cumul });
   }
   const premierNegatif = points.find((p) => p.k > 0 && p.prudent < 0) || null;
-  return { insuffisant: false, solde, points, moyNet, minNet, maxNet, moyRevenus: moy(flux.map((f) => f.revenus)), moyDepenses: moy(flux.map((f) => f.depenses)),
-    nbMois: flux.length, ponctuels: ponctuels.sort((a, b) => (a.date < b.date ? -1 : 1)), premierNegatif };
+  const rev = prevues.filter((x) => x.montant > 0).reduce((s, x) => s + x.montant, 0), dep = prevues.filter((x) => x.montant < 0).reduce((s, x) => s - x.montant, 0);
+  return { insuffisant: false, solde, points, moyNet, minNet, maxNet, nbMois: flux.length,
+    moyRevenus: moy(flux.map((f) => f.revenus)), moyDepenses: moy(flux.map((f) => f.depenses)),
+    echeancierRevenus: Math.round(rev / horizon), echeancierDepenses: Math.round(dep / horizon),
+    ponctuels: prevues.filter((x) => RARES.has(x.frequence)).sort((a, b) => (a.date < b.date ? -1 : 1)), premierNegatif };
 }
 
 // Dépense mensuelle moyenne par catégorie principale sur les mois complets précédents : [{ categorieId, moyenne, usage }]

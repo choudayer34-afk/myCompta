@@ -66,10 +66,16 @@ export function monter(conteneur) {
     // Plus gros postes de confort
     if (a.postesConfort.length) {
       noeuds.push(h("h3", { class: "groupe" }, "Plus gros postes de confort"));
-      noeuds.push(h("div", { class: "carte-jour" }, a.postesConfort.map((l) => h("div", { class: "ligne-eco" },
-        h("div", { class: "eco-texte" }, h("strong", {}, nomCat(l.categorieId)),
-          h("small", {}, `−20 % : ${euros(economieSiReduit(l.realise))} par mois, ${euros(economieSiReduit(l.realise) * 12)} par an`)),
-        h("span", { class: "montant" }, euros(l.realise))))));
+      noeuds.push(h("div", { class: "carte-jour" }, a.postesConfort.map((l) => {
+        const base = l.moyenne > 0 ? l.moyenne : l.realise;
+        const eco = economieSiReduit(base);
+        return h("div", { class: "ligne-eco" },
+          h("div", { class: "eco-texte" }, h("strong", {}, nomCat(l.categorieId)),
+            h("small", {}, l.moyenne > 0 ? `Moyenne des 3 derniers mois : ${euros(l.moyenne)} par mois` : "Pas d'historique : calcul sur le mois affiché"),
+            h("small", { class: "eco-gain" }, `Économie si −20 % : ${euros(eco)} par mois (${euros(eco * 12)} par an)`)),
+          h("span", { class: "montant", title: "Dépensé ce mois-ci" }, euros(l.realise)));
+      })));
+      noeuds.push(h("p", { class: "note" }, "Le montant à droite est ce que tu as dépensé dans le mois affiché. L'économie est calculée sur la moyenne des 3 derniers mois. Pour tester une autre réduction, utilise l'écran Projection."));
     }
     // Hausses
     if (a.hausses.length) {
