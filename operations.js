@@ -100,8 +100,8 @@ export function monter(conteneur, { id }) {
     const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
     const pointe = soldePointe(c, etat.operations);
     solde.replaceChildren(
-      h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant " + (pointe < 0 ? "neg" : "pos") }, euros(pointe))),
-      h("em", { class: "solde-encours" }, `en cours : ${euros(enCours)}`));
+      h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
+      h("em", { class: "solde-encours" }, `pointé : ${euros(pointe)}`));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
     const modeles = habitudes(id, etat.operations, aujourdhui(), exclus);

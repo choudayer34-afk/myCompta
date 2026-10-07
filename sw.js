@@ -1,4 +1,4 @@
-const VERSION = "v41";
+const VERSION = "v42";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
