@@ -20,7 +20,7 @@ export function repartitionDepenses({ categories, operations, comptes, comptesId
   const net = new Map(), sous = new Map();
   let recettes = 0;
   for (const o of operations) {
-    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId || o.nature === "virement") continue;
+    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId) continue;
     const v = -Math.round(o.montant * partCompte(suivis.get(o.compteId)) / 100);
     const r = o.categorieId ? racine(o.categorieId) : null;
     net.set(r, (net.get(r) || 0) + v);
@@ -54,7 +54,7 @@ export function repartitionOperations({ categories, operations }) {
   const net = new Map(), sous = new Map();
   let recettes = 0, ecartees = 0;
   for (const o of operations) {
-    if (o.statut === "annule" || o.virementId || o.nature === "virement") { ecartees++; continue; }
+    if (o.statut === "annule" || o.virementId) { ecartees++; continue; }
     const v = -o.montant;
     const r = o.categorieId ? racine(o.categorieId) : null;
     net.set(r, (net.get(r) || 0) + v);

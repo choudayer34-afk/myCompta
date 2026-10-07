@@ -488,3 +488,4 @@ label.ligne-eco { cursor:pointer; }
 .bloc-objectif small { color:var(--discret); }
 .bloc-objectif small.avert-proj { color:var(--alerte); }
 .eco-gain { color:var(--accent); }
+.champ-icone { width:56px; flex:none; text-align:center; }

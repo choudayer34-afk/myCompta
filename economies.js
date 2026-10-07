@@ -65,7 +65,7 @@ export function detecterAbonnements({ operations, comptes, comptesIds = [], aujo
   const moisCourant = aujourdhui.slice(0, 7);
   const depart = moisDecale(moisCourant, -9);
   for (const o of operations) {
-    if (!suivis.has(o.compteId) || o.montant >= 0 || o.statut === "annule" || o.virementId || o.nature === "virement") continue;
+    if (!suivis.has(o.compteId) || o.montant >= 0 || o.statut === "annule" || o.virementId) continue;
     if (o.date.slice(0, 7) < depart) continue;
     const cle = sa(o.nom).replace(/[0-9]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
     if (!cle) continue;
@@ -95,7 +95,7 @@ export function detecterAbonnements({ operations, comptes, comptesIds = [], aujo
   const clePlan = new Set();
   const prevues = [];
   for (const p of planifiees) {
-    if (!suivis.has(p.compteId) || !(p.montant < 0) || p.virementCompteId || p.nature === "virement") continue;
+    if (!suivis.has(p.compteId) || !(p.montant < 0) || p.virementCompteId) continue;
     if (p.dateFin && p.dateFin < aujourdhui) continue;
     const f = FACTEUR[p.frequence];
     if (!f) continue;

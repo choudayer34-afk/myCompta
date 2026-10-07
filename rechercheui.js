@@ -40,7 +40,7 @@ export function monter(conteneur) {
     for (const o of r.lignes.slice(0, limite)) {
       if (o.date !== jour) { jour = o.date; noeuds.push(h("h3", { class: "groupe" }, jourTitre(jour))); carte = h("div", { class: "carte-jour" }); noeuds.push(carte); }
       const cat = cats.get(o.categorieId);
-      const virement = o.virementId || o.nature === "virement";
+      const virement = o.virementId;
       const etiquette = (virement ? "Virement" : libelleCategorie(o.categorieId, etat.categories) || "Sans catégorie");
       carte.append(h("div", { class: "op-ligne" + (o.statut === "annule" ? " annule" : "") },
         h("span", { class: "op-icone", style: cat && cat.couleur ? `background:${cat.couleur}26` : null },

@@ -121,7 +121,7 @@ export function monter(conteneur, { id }) {
     const nomsCat = new Map(etat.categories.map((x) => [x.id, x.nom]));
     const q = sansAccent(recherche).trim();
     if (fExport) lignes = lignes.filter((o) => (fExport === "oui") === !!o.aExporter);
-    const estVirement = (o) => o.virementId || o.nature === "virement";
+    const estVirement = (o) => o.virementId;
     if (fCat === "avec") lignes = lignes.filter((o) => o.categorieId);
     else if (fCat === "sans") lignes = lignes.filter((o) => !o.categorieId && !estVirement(o));
     else if (fCat === "aclasser") lignes = lignes.filter((o) => o.aClasser && !o.categorieId);
@@ -169,7 +169,7 @@ export function monter(conteneur, { id }) {
       }
       const cat = cats.get(o.categorieId);
       const choisie = choisies.has(o.id);
-      const virement = !!o.virementId || o.nature === "virement";
+      const virement = !!o.virementId;
       const glyphe = virement ? "⇄" : iconeDe(cat) || "•";
       const teinte = !virement && cat && cat.couleur ? `background:${cat.couleur}26` : "";
       const libCat = virement ? "Virement" : cat ? (cat.parentId && parId.get(cat.parentId) ? `${parId.get(cat.parentId).nom} › ${cat.nom}` : cat.nom) : o.aClasser ? "🤔 À classer" : "Sans catégorie";

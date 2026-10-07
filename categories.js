@@ -1,4 +1,5 @@
 import { etat, pret, nouvelId, lot, categoriesTriees } from "./store.js";
+import { formReorganisation } from "./reorganisationui.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 
 const ICONES_CAT = ["🛒", "🍽", "☕", "⛽", "🚗", "🚌", "🏠", "💡", "📱", "🌐", "🩺", "💊", "🎬", "🎁", "👕", "✈️", "🎓", "👶", "🐾", "🔧", "🏦", "💶", "🧾", "❤️", "🎉", "📦"];
@@ -52,7 +53,8 @@ export function monter(conteneur) {
   const resume = h("div", { class: "resume" });
   const liste = h("div", { class: "liste" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle catégorie", onclick: () => formCategorie() }, "+");
-  conteneur.replaceChildren(resume, liste, ajout);
+  const reorg = h("button", { type: "button", class: "sec", onclick: () => formReorganisation() }, "Découper une catégorie en sous-catégories");
+  conteneur.replaceChildren(resume, reorg, liste, ajout);
 
   function maj() {
     if (!pret()) { liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }

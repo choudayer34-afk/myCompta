@@ -39,11 +39,11 @@ export function calculerBudget({ categories, operations, planifiees, comptes, bu
   const reel = new Map(), prevu = new Map();   // categorieId|null -> centimes
   const ajouter = (m, cle, v) => m.set(cle, (m.get(cle) || 0) + v);
   for (const o of operations) {
-    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId || o.nature === "virement") continue;
+    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId) continue;
     ajouter(reel, o.categorieId || null, valeur(o.montant, o.compteId));
   }
   for (const p of planifiees) {
-    if (!suivis.has(p.compteId) || p.virementCompteId || p.nature === "virement" || estTerminee(p)) continue;
+    if (!suivis.has(p.compteId) || p.virementCompteId || estTerminee(p)) continue;
     const dates = echeancesDues(p, fin).dates.filter((d) => d >= debut && d > aujourdhui);
     if (dates.length) ajouter(prevu, p.categorieId || null, dates.length * valeur(p.montant, p.compteId));
   }
@@ -89,7 +89,7 @@ export function detailCategorie({ categories, operations, comptes, comptesIds = 
   const ops = [], par = new Map();
   let total = 0;
   for (const o of operations) {
-    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId || o.nature === "virement") continue;
+    if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || o.virementId) continue;
     if (ids ? !(o.categorieId && ids.has(o.categorieId)) : !!o.categorieId) continue;
     const v = -Math.round(o.montant * partCompte(suivis.get(o.compteId)) / 100);
     ops.push(o); total += v;

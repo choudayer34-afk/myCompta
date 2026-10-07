@@ -17,7 +17,7 @@ export function suggererCategories(nom, operations, categories, max = 3) {
   const docs = [];
   const vus = new Set();
   for (const o of operations) {
-    if (!o.categorieId || !actives.has(o.categorieId) || o.virementId || o.nature === "virement" || o.statut === "annule") continue;
+    if (!o.categorieId || !actives.has(o.categorieId) || o.virementId || o.statut === "annule") continue;
     const cle = o.categorieId + "|" + normaliser(o.nom);
     if (vus.has(cle)) { docs.find((d) => d.cle === cle).poids++; continue; }
     vus.add(cle);

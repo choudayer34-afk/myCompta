@@ -100,6 +100,7 @@ function tenterSaisieExterne() {
   traiterTexteExterne(t, ({ compteId, modele }) => nouvelleDepense(modele, compteId));
 }
 window.addEventListener("compta-deverrouille", tenterSaisieExterne);
+$("btn-recherche").addEventListener("click", () => { location.hash = "#/recherche"; });
 $("btn-voix").addEventListener("click", () => {
   if (!pret() || !compteDepenseParDefaut()) { alert("Créez d'abord un compte."); return; }
   dicterDepense((r) => nouvelleDepense({
@@ -137,19 +138,19 @@ function naviguer() {
     onglet = "plus";
     vue = vueExport.monter(principal, { id: decodeURIComponent(hash.slice(9)) });
   } else if (hash === "#/echeancier") {
-    onglet = "echeancier";
+    onglet = "plus";
     vue = vueEcheancier.monter(principal);
   } else if (hash === "#/budgets" || hash === "#/bilan") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);
   } else if (hash === "#/previsions") {
-    onglet = "plus";
+    onglet = "previsions";
     vue = vuePrevisions.monter(principal);
   } else if (hash === "#/recherche") {
     onglet = "plus";
     vue = vueRecherche.monter(principal);
   } else if (hash === "#/releve") {
-    onglet = "plus";
+    onglet = "releve";
     vue = vueReleve.monter(principal);
     vue.maj();
   } else if (hash === "#/economies") {
@@ -162,7 +163,7 @@ function naviguer() {
     onglet = "plus";
     vue = vueImport.monter(principal);
   } else if (hash === "#/categories") {
-    onglet = "categories";
+    onglet = "plus";
     vue = vueCategories.monter(principal);
   } else {
     vue = vueComptes.monter(principal);
@@ -192,6 +193,7 @@ onAuthStateChanged(auth, (user) => {
   $("btn-depense").classList.toggle("cache", !connecte);
   $("btn-ticket").classList.toggle("cache", !connecte);
   $("btn-voix").classList.toggle("cache", !connecte);
+  $("btn-recherche").classList.toggle("cache", !connecte);
   $("nav").classList.toggle("cache", !connecte);
   surConnexion(connecte);
   if (user) {

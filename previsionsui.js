@@ -1,5 +1,5 @@
 // Écran « Projection » : capacité d'épargne, projection du solde, simulation, objectifs, rythme du mois.
-import { etat, pret } from "./store.js";
+import { etat, pret, lot } from "./store.js";
 import { euros, dateFr, aujourdhui } from "./format.js";
 import { h, selecteur } from "./ui.js";
 import { comptesSuivis } from "./budgets.js";
@@ -74,10 +74,18 @@ export function monter(conteneur) {
   function maj() {
     if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const auj = aujourdhui();
-    const ids = comptesSuivis();
+    const actifs = etat.comptes.filter((c) => !c.archive);
+    const mem = (etat.reglages.find((r) => r.id === "projection") || {}).comptesIds;
+    let ids = (mem || comptesSuivis()).filter((i) => actifs.some((c) => c.id === i));
+    if (!ids.length) ids = actifs.map((c) => c.id);
+    const bascule = (id) => {
+      const nv = ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id];
+      if (!nv.length) return;
+      const l = lot(); l.set("reglages", "projection", { comptesIds: nv }); l.envoyer();
+    };
     const base = { operations: etat.operations, comptes: etat.comptes, comptesIds: ids, planifiees: etat.planifiees };
-    const noms = etat.comptes.filter((c) => (ids.length ? ids.includes(c.id) : !c.archive)).map((c) => c.nom).join(", ");
-    const noeuds = [h("p", { class: "note" }, `Comptes pris en compte : ${noms || "aucun"} (réglable dans Plus, « Comptes suivis »).`)];
+    const noeuds = [h("div", { class: "rapide" }, h("span", { class: "rapide-titre" }, "Comptes :"),
+      ...actifs.map((c) => h("button", { type: "button", class: "sec" + (ids.includes(c.id) ? " actif-filtre" : ""), onclick: () => bascule(c.id) }, c.nom)))];
 
     // Leviers « et si »
     const moyCat = moyennesCategories({ categories: etat.categories, operations: etat.operations, comptes: etat.comptes, comptesIds: ids, mois: auj.slice(0, 7) }).filter((m) => m.categorieId && m.moyenne > 0);
