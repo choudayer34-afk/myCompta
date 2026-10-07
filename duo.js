@@ -114,3 +114,20 @@ export function montantsDepuisTexte(texte) {
     return Number.isFinite(n) ? Math.round(n * 100) : null;
   }).filter((x) => x !== null && x > 0);
 }
+
+export const SEUIL_ENDETTEMENT = 0.35;
+
+// Capacité d'emprunt : mensualité maximale pour rester sous le seuil d'endettement (crédits existants déduits),
+// puis capital empruntable au taux annuel `taux` (en %), sur `ans` années, avec une assurance annuelle `assurance` (en % du capital).
+export function capaciteEmprunt({ net, creditExistant = 0, taux = 0, ans = 20, assurance = 0, seuil = SEUIL_ENDETTEMENT }) {
+  const mensualiteMax = Math.max(0, Math.round(net * seuil - creditExistant));
+  const n = Math.max(1, Math.round(ans * 12));
+  const t = (taux || 0) / 100 / 12;
+  const f = t > 0 ? t / (1 - Math.pow(1 + t, -n)) : 1 / n;   // mensualité hors assurance, par euro emprunté
+  const a = (assurance || 0) / 100 / 12;                       // assurance mensuelle, par euro emprunté
+  const capital = mensualiteMax > 0 ? Math.round(mensualiteMax / (f + a)) : 0;
+  const interets = Math.round(capital * f * n - capital);
+  const assuranceTotale = Math.round(capital * a * n);
+  return { mensualiteMax, capital, interets, assuranceTotale, coutTotal: interets + assuranceTotale, mois: n,
+    deborde: net > 0 && creditExistant > net * seuil };
+}

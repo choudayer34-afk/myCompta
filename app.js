@@ -5,6 +5,7 @@ import { demarrer, arreter, abonner, donneesFiables, pret, compteDepenseParDefau
 import { scannerTicket } from "./scanner.js";
 import { dicterDepense } from "./voix.js";
 import { afficherAide } from "./aide.js";
+import { demarrerRepli } from "./repli.js";
 import * as vueComptes from "./comptes.js";
 import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
@@ -179,6 +180,7 @@ function naviguer() {
   rafraichirAlertes();
   window.scrollTo(0, 0);
 }
+demarrerRepli($("principal"));
 window.addEventListener("hashchange", () => { if (auth.currentUser) naviguer(); });
 // Création automatique des échéances arrivées à terme, dès que les données sont à jour
 let generationEnCours = false;

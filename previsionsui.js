@@ -102,7 +102,7 @@ export function monter(conteneur) {
       noeuds.push(h("div", { class: "carte" }, h("p", {}, "Rien à projeter : ni échéance dans l'échéancier, ni opération sur les mois précédents pour les comptes pris en compte.")));
     } else {
       // Capacité d'épargne
-      noeuds.push(h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Capacité d'épargne mensuelle"),
+      noeuds.push(h("div", { class: "carte", "data-resume": `reste ${euros(p.echeancierRevenus - p.echeancierDepenses + p.moyNet)} / mois` }, h("h3", { class: "titre-carte" }, "Capacité d'épargne mensuelle"),
         h("div", { class: "ligne-synthese" }, h("span", {}, "Échéancier : recettes"), h("strong", { class: "montant pos" }, euros(p.echeancierRevenus))),
         h("div", { class: "ligne-synthese" }, h("span", {}, "Échéancier : dépenses"), h("strong", { class: "montant neg" }, euros(-p.echeancierDepenses))),
         h("div", { class: "ligne-synthese" }, h("span", {}, "Hors échéancier (moyenne)"), h("strong", { class: "montant " + (p.moyNet < 0 ? "neg" : "pos") }, euros(p.moyNet))),
@@ -130,7 +130,7 @@ export function monter(conteneur) {
       const tableau = h("details", { class: "tableau-proj" }, h("summary", {}, "Voir le tableau"),
         h("table", {}, h("thead", {}, h("tr", {}, ...["Fin de mois", "Central", "Prudent", "Favorable"].concat(economie > 0 ? ["Avec changements"] : []).map((t) => h("th", {}, t)))),
           h("tbody", {}, p.points.slice(1).map((q) => h("tr", {}, h("td", {}, moisLong(q.mois)), h("td", {}, euros(q.central)), h("td", {}, euros(q.prudent)), h("td", {}, euros(q.favorable)), economie > 0 ? h("td", {}, euros(q.avec)) : null)))));
-      noeuds.push(h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Solde projeté"),
+      noeuds.push(h("div", { class: "carte", "data-resume": `${euros(dernier.central)} dans ${horizon} mois` }, h("h3", { class: "titre-carte" }, "Solde projeté"),
         h("p", {}, `Solde en cours aujourd'hui : ${euros(p.solde)}. Dans ${horizon} mois (${moisLong(dernier.mois)}) : environ `, h("strong", {}, euros(dernier.central)), ` (prudent ${euros(dernier.prudent)}, favorable ${euros(dernier.favorable)}).`),
         p.premierNegatif ? h("p", { class: "avert-proj" }, `Dans le scénario prudent, le solde passe sous zéro en ${moisLong(p.premierNegatif.mois)}.`) : null,
         svg, legende, tip, tableau,
@@ -144,7 +144,7 @@ export function monter(conteneur) {
       sPct.addEventListener("change", () => { pct = +sPct.value; maj(); });
       const sAbo = selecteur([["", "Aucun"], ...abos.map((a) => [a.nom, `${a.nom} (${euros(a.mensuel)}/mois)`])], aboNom, { "aria-label": "Abonnement à supprimer" });
       sAbo.addEventListener("change", () => { aboNom = sAbo.value; maj(); });
-      noeuds.push(h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Et si… ?"),
+      noeuds.push(h("div", { class: "carte", "data-resume": economie > 0 ? `${euros(economie)} / mois économisés` : "aucune simulation" }, h("h3", { class: "titre-carte" }, "Et si… ?"),
         h("div", { class: "champ" }, h("label", {}, "Je réduis cette catégorie"), sCat),
         h("div", { class: "champ" }, h("label", {}, "De"), sPct),
         h("div", { class: "champ" }, h("label", {}, "Je supprime cet abonnement"), sAbo),
@@ -156,7 +156,7 @@ export function monter(conteneur) {
     // Objectifs d'épargne
     const objs = objectifsEpargne({ operations: etat.operations, comptes: etat.comptes, aujourdhui: auj });
     if (objs.length) {
-      noeuds.push(h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Objectifs d'épargne"), ...objs.map((o) => {
+      noeuds.push(h("div", { class: "carte", "data-resume": `${objs.length} objectif(s)` }, h("h3", { class: "titre-carte" }, "Objectifs d'épargne"), ...objs.map((o) => {
         let texte;
         if (o.atteint) texte = "Objectif atteint.";
         else if (o.aucuneDonnee) texte = "Pas assez d'historique pour estimer la date d'atteinte.";

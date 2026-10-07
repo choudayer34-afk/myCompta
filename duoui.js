@@ -3,7 +3,8 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte } from "./duo.js";
+import { majResume } from "./repli.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte, capaciteEmprunt, SEUIL_ENDETTEMENT } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -171,7 +172,7 @@ export function monter(conteneur) {
     const iNom = h("input", { type: "text", placeholder: "Nom (ex. nounou)", autocomplete: "off", "aria-label": "Nom de la dépense récurrente" });
     const iMt = h("input", { type: "text", inputmode: "decimal", placeholder: "Montant", "aria-label": "Montant" });
     const liste = recurrentes();
-    return h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses récurrentes : ${P.nomAle}`),
+    return h("div", { class: "carte", "data-resume": liste.length ? `${euros(liste.reduce((t, r) => t + r.montant, 0))} / mois` : "aucune" }, h("h3", { class: "titre-carte" }, `Dépenses récurrentes : ${P.nomAle}`),
       h("p", { class: "note" }, "Reprises automatiquement chaque mois, à partir du mois affiché, jusqu'à ce que tu les retires."),
       ...liste.map((r) => h("div", { class: "ligne-synthese" }, h("span", {}, `${r.nom || "Dépense"} · ${euros(r.montant)}`),
         h("button", { type: "button", class: "sec bouton-choix", onclick: () => retirerRecurrente(r) }, "Retirer dès ce mois"))),
@@ -195,7 +196,7 @@ export function monter(conteneur) {
         const k = inputs.indexOf(i);
         if (k === inputs.length - 1) { const n = ligne(""); inputs.push(n); grille.append(n); n.focus(); } else inputs[k + 1].focus();
       });
-      i.addEventListener("input", () => { saisie = inputs.map((x) => x.value); majTotaux(); });
+      i.addEventListener("input", () => { saisie = inputs.map((x) => x.value); majTotaux(); majResume(grille, euros(montantsSaisis().reduce((t, x) => t + x, 0))); });
       i.addEventListener("change", () => {
         const m = montantsDepuisTexte(i.value);
         i.value = m.length ? versSaisie(m[0]) : "";   // un montant lisible est réécrit au format « 12,50 »
@@ -242,7 +243,7 @@ export function monter(conteneur) {
       : "Les comptes sont équilibrés";
     const sansReglage = !P.brutChr && !P.brutAle;
     return [
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Qui doit quoi"), h("p", {}, h("strong", {}, b.depTotal ? doit : "Aucune dépense partagée ce mois-ci")),
+      h("div", { class: "carte", "data-resume": b.depTotal ? doit : "aucune dépense" }, h("h3", { class: "titre-carte" }, "Qui doit quoi"), h("p", {}, h("strong", {}, b.depTotal ? doit : "Aucune dépense partagée ce mois-ci")),
         sansReglage ? h("div", {}, h("p", { class: "note" }, "Renseigne d'abord les salaires : sans eux, la répartition est de 50/50."), h("div", { class: "actions" }, h("button", { type: "button", onclick: () => formParametres() }, "Renseigner les salaires"))) : null,
         L(`Dépenses payées par ${P.nomChr}`, euros(b.depChr)), L(`Dépenses payées par ${P.nomAle}`, euros(b.depAle)), L("Total partagé", euros(b.depTotal)),
         detail(`Détail des dépenses : ${P.nomChr}`, parCompte(operationsPartagees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}${o.montant > 0 ? " (remboursement)" : ""}`, -o.montant, { libelle: "Retirer", fait: () => retirer(o.id) }]), "chr"),
@@ -251,12 +252,12 @@ export function monter(conteneur) {
         detail("Ajouter une dépense manquante", parCompte(operationsManquantes(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), o.nom, -o.montant, { libelle: "Ajouter", fait: () => ajouter(o.id) }]), "manquantes"),
         detail(`Détail des dépenses : ${P.nomAle}`, [...recurrentes().map((r) => ["", `${r.nom || "Dépense"} (récurrente)`, r.montant]), ...montantsSaisis().map((m, i) => ["", `Dépense ${i + 1}`, m])], "ale"),
         L(`Part : ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part : ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Provision du compte commun"),
+      h("div", { class: "carte", "data-resume": `${euros(b.provChr)} · ${euros(b.provAle)}` }, h("h3", { class: "titre-carte" }, "Provision du compte commun"),
         b.lignes.length ? h("div", {}, ...b.lignes.map((l) => h("div", { class: "ligne-synthese" }, h("span", {}, `${l.nom || "Sans nom"}${l.periode === "annuel" ? " (annuel ÷ 12)" : ""} · ${euros(l.mensuel)}`), h("small", {}, `${euros(l.chr)} / ${euros(l.ale)}`))))
           : h("p", { class: "note" }, "Aucune ligne. Ajoute tes dépenses du compte commun."),
         L(`À provisionner : ${P.nomChr}`, euros(b.provChr)), L(`À provisionner : ${P.nomAle}`, euros(b.provAle)),
         h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formLignes() }, "Modifier les lignes"))),
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Bilan du mois"),
+      h("div", { class: "carte", "data-resume": `restant ${euros(b.restantChr)} · ${euros(b.restantAle)}` }, h("h3", { class: "titre-carte" }, "Bilan du mois"),
         h("div", { class: "ligne-synthese" }, h("span", {}, ""), h("strong", {}, `${P.nomChr} · ${P.nomAle}`)),
         L("Revenu net", `${euros(b.netChr)} · ${euros(b.netAle)}`), L("Provision", `${euros(b.provChr)} · ${euros(b.provAle)}`),
         L("Part des dépenses partagées", `${euros(b.partDepChr)} · ${euros(b.partDepAle)}`),
@@ -277,20 +278,50 @@ export function monter(conteneur) {
     const pct = (a, z) => (a > 0 ? `${z >= a ? "+" : "−"}${Math.abs(Math.round((z - a) / a * 1000) / 10).toString().replace(".", ",")} %` : "—");
     const L = (a, val, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, val));
     const taux = v.tauxEndettement == null ? "—" : `${Math.round(v.tauxEndettement * 1000) / 10} %`.replace(".", ",");
-    return [
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Endettement et reste à vivre"), choix,
+    const cartes = [
+      h("div", { class: "carte", "data-resume": `${taux} · reste à vivre ${euros(v.resteAVivre)}` }, h("h3", { class: "titre-carte" }, "Endettement et reste à vivre"), choix,
         L("Revenu net mensuel", euros(v.net)),
         L("Provision du compte commun", euros(v.prov)),
         L("Reste à vivre (revenu net − provision)", euros(v.resteAVivre), v.resteAVivre < 0 ? "montant neg" : "montant pos"),
         L("Crédits (lignes marquées « crédit »)", euros(v.credit)),
         L("Taux d'endettement", taux, v.tauxEndettement != null && v.tauxEndettement > 0.35 ? "montant neg" : ""),
         h("p", { class: "note" }, v.credit ? "Taux d'endettement = crédits ÷ revenu net. Les banques retiennent en général 35 % comme repère." : "Aucune ligne n'est marquée « crédit » : dans « Modifier les lignes », coche « crédit » sur le prêt immobilier et les assurances de prêt.")),
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Évolution sur 12 mois : ${noms[vueQui]}`),
+      h("div", { class: "carte", "data-resume": `net ${pct(prem.net, der.net)} · reste à vivre ${pct(prem.resteAVivre, der.resteAVivre)}` }, h("h3", { class: "titre-carte" }, `Évolution sur 12 mois : ${noms[vueQui]}`),
         L("Revenu net", `${euros(prem.net)} → ${euros(der.net)} (${pct(prem.net, der.net)})`),
         L("Reste à vivre", `${euros(prem.resteAVivre)} → ${euros(der.resteAVivre)} (${pct(prem.resteAVivre, der.resteAVivre)})`),
         detail("Mois par mois", ev.slice().reverse().map((x) => [moisFr(x.mois + "-01"), `net ${euros(x.net)} · reste à vivre`, x.resteAVivre])),
-        h("p", { class: "note" }, "Calculé avec le salaire en vigueur chaque mois et les lignes de provision actuelles."))
+        h("p", { class: "note" }, "Calculé avec le salaire en vigueur chaque mois et les lignes de provision actuelles.")),
+      carteEmprunt(P, v, noms)
     ];
+    return [cartes[0], cartes[2], cartes[1]];   // l'emprunt suit directement l'endettement
+  }
+
+
+  function carteEmprunt(P, v, noms) {
+    const E = { taux: 3.5, ans: 20, assur: 0.3, ...(P.emprunt || {}) };
+    const nombre = (t, defaut) => { const x = parseFloat(String(t).replace(",", ".")); return Number.isFinite(x) && x >= 0 ? x : defaut; };
+    const champNb = (libelle, valeur, cle, defaut) => {
+      const i = h("input", { type: "text", inputmode: "decimal", value: String(valeur).replace(".", ","), "aria-label": libelle });
+      i.addEventListener("change", () => {
+        const l = lot(); l.set("reglages", "duo", { emprunt: { ...E, [cle]: cle === "ans" ? Math.max(1, nombre(i.value, defaut)) : nombre(i.value, defaut) } }); l.envoyer();
+      });
+      return champ(libelle, i);
+    };
+    const c = capaciteEmprunt({ net: v.net, creditExistant: v.credit, taux: E.taux, ans: E.ans, assurance: E.assur });
+    const L = (a, val, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, val));
+    const duree = (an) => ({ an, c: capaciteEmprunt({ net: v.net, creditExistant: v.credit, taux: E.taux, ans: an, assurance: E.assur }) });
+    return h("div", { class: "carte", "data-resume": c.deborde ? "déjà au-dessus du seuil" : `${euros(c.capital)} (mensualité ${euros(c.mensualiteMax)})` }, h("h3", { class: "titre-carte" }, `Nouveau crédit possible : ${noms[vueQui]}`),
+      h("p", { class: "note" }, `Pour rester sous ${Math.round(SEUIL_ENDETTEMENT * 100)} % d'endettement, crédits actuels compris. Taux, durée et assurance sont à adapter aux offres reçues.`),
+      champNb("Taux annuel du crédit (%)", E.taux, "taux", 3.5), champNb("Durée (années)", E.ans, "ans", 20), champNb("Assurance par an (% du capital)", E.assur, "assur", 0.3),
+      c.deborde ? h("p", { class: "avert-proj" }, "Les crédits actuels dépassent déjà le seuil : aucun nouveau crédit n'est possible dans ces conditions.") : null,
+      L("Mensualité maximale du nouveau crédit", euros(c.mensualiteMax), c.mensualiteMax > 0 ? "montant pos" : "montant neg"),
+      L("Montant empruntable", euros(c.capital), "montant pos"),
+      L("Coût des intérêts", euros(c.interets)),
+      c.assuranceTotale ? L("Coût de l'assurance", euros(c.assuranceTotale)) : null,
+      L("Coût total du crédit", euros(c.coutTotal)),
+      L("Reste à vivre après ce crédit", euros(v.resteAVivre - c.mensualiteMax), v.resteAVivre - c.mensualiteMax < 0 ? "montant neg" : ""),
+      detail("Montant selon la durée", [10, 15, 20, 25].map(duree).map(({ an, c: x }) => [`${an} ans`, `mensualité ${euros(x.mensualiteMax)}`, x.capital]), "durees"),
+      h("p", { class: "note" }, "Estimation indicative : la banque regarde aussi ton apport, ton reste à vivre et ta situation. Ce n'est pas un conseil financier."));
   }
 
   function formPerso() {
@@ -311,7 +342,7 @@ export function monter(conteneur) {
     if (moisSaisie !== mois) { moisSaisie = mois; dessinerGrille(P.nomAle); }
     const nbOps = operationsPartagees(etat.operations, mois, optsMois()).length;
     corps.replaceChildren(
-      h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses saisies : ${P.nomAle}`),
+      h("div", { class: "carte", "data-resume": euros(montantsSaisis().reduce((t, x) => t + x, 0)) }, h("h3", { class: "titre-carte" }, `Dépenses saisies : ${P.nomAle}`),
         h("p", { class: "note" }, "Un montant par ligne. Entrée passe à la ligne suivante. Tu peux aussi coller plusieurs cellules Excel d'un coup."), grille),
       carteRecurrentes(P),
       h("p", { class: "note" }, `${P.nomChr} : ${nbOps} opération(s) comptée(s) ce mois-ci (marquées « à exporter »).`),

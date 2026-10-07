@@ -30,7 +30,8 @@ const GUIDES = {
     "La courbe montre trois scénarios : prudent, central, favorable. « Voir le tableau » donne les chiffres.",
     "« Et si… ? » : simule la réduction d'une catégorie ou la suppression d'un abonnement.",
     "« Objectifs d'épargne » et « Rythme du mois » : date d'atteinte de tes objectifs et dépenses de confort du mois en cours.",
-    "« Échéances prises en compte » liste ce que la projection lit dans ton échéancier, et ce qu'elle ignore."] },
+    "« Échéances prises en compte » liste ce que la projection lit dans ton échéancier, et ce qu'elle ignore.",
+    "Chaque bloc se replie et se déplie en touchant son titre ; replié, il n'affiche que l'information importante."] },
   releve: { titre: "Relevé bancaire", but: "Rapprocher le relevé de ta banque avec tes opérations.", points: [
     "Choisis le compte puis le fichier du relevé (CSV, OFX, QIF ou Excel). Le relevé n'est pas conservé dans l'application.",
     "Chaque ligne du relevé est reliée à une opération en cours : elle sera pointée. Sinon, tu peux la créer, la relier à une autre ou l'ignorer.",
@@ -65,7 +66,8 @@ const GUIDES = {
     "Les flèches ‹ › changent de mois.",
     "La barre sépare l'essentiel, le confort et le non classé. « Classer mes catégories » règle ce classement.",
     "« Si je ne dépense que l'indispensable » montre l'effet sur ton solde dans 3, 6 ou 12 mois.",
-    "« Plus gros postes de confort », « En hausse » et « Abonnements » donnent les pistes concrètes."] },
+    "« Plus gros postes de confort », « En hausse » et « Abonnements » donnent les pistes concrètes.",
+    "Le bloc « Si je ne dépense que l'indispensable » se replie en touchant son titre."] },
   recherche: { titre: "Recherche", but: "Retrouver une opération, tous comptes confondus.", points: [
     "Tape un nom, un montant, une catégorie, un compte ou une date.",
     "Choisis un compte pour restreindre la recherche.",
@@ -76,7 +78,9 @@ const GUIDES = {
     "Les dépenses de l'autre personne se saisissent dans la grille : un montant par ligne, Entrée pour passer à la suivante, ou colle plusieurs cellules Excel d'un coup.",
     "« Dépenses récurrentes » : une dépense reprise chaque mois jusqu'à ce que tu la retires.",
     "« Provision du compte commun » : les lignes prélevées sur le compte joint, avec leur mode de partage. Une ligne annuelle est lissée sur 12 mois et la case « crédit » alimente le taux d'endettement.",
-    "« Bilan du mois », « Endettement et reste à vivre » et « Évolution » résument la situation de chacun, ou des deux ensemble."] }
+    "« Bilan du mois », « Endettement et reste à vivre » et « Évolution » résument la situation de chacun, ou des deux ensemble.",
+    "« Nouveau crédit possible » estime le montant empruntable pour rester sous 35 % d'endettement, selon le taux, la durée et l'assurance que tu indiques.",
+    "Chaque bloc se replie et se déplie en touchant son titre. Replié, il n'affiche que l'information importante ; ton choix est mémorisé."] }
 };
 
 export function cleGuide(hash) {

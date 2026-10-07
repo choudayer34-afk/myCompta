@@ -74,11 +74,13 @@ export function monter(conteneur) {
       const nonDefini = moyCat.filter((m) => !m.usage).reduce((t, m) => t + m.moyenne, 0);
       const pr = projection({ ...p, planifiees: etat.planifiees, aujourdhui: auj, horizon: horizonInd, economieMensuelle: confort });
       const bouton = (n) => h("button", { type: "button", class: "sec" + (horizonInd === n ? " actif-filtre" : ""), onclick: () => { horizonInd = n; maj(); } }, `${n} mois`);
+      let resumeInd = "";
       const contenu = [h("h3", { class: "titre-carte" }, "Si je ne dépense que l'indispensable"), h("div", { class: "modes-bilan" }, bouton(3), bouton(6), bouton(12))];
       if (!confort) contenu.push(h("p", { class: "note" }, essentiel || nonDefini ? "Aucune dépense de confort sur les derniers mois : rien à retirer. Vérifie le classement de tes catégories." : "Classe d'abord tes catégories en « essentielles » ou « confort » avec le bouton ci-dessus."));
       else if (pr.insuffisant) contenu.push(h("p", { class: "note" }, "Pas assez de données pour projeter."));
       else {
         const d = pr.points[pr.points.length - 1];
+        resumeInd = `${euros(d.avec - d.central)} de plus sur ${horizonInd} mois`;
         contenu.push(
           h("div", { class: "ligne-synthese" }, h("span", {}, "Dépenses de confort retirées"), h("strong", { class: "montant pos" }, euros(confort) + " / mois")),
           h("div", { class: "ligne-synthese" }, h("span", {}, "Dépenses essentielles conservées"), h("strong", { class: "montant neg" }, euros(-essentiel) + " / mois")),
@@ -88,7 +90,7 @@ export function monter(conteneur) {
           h("p", {}, `Soit ${euros(d.avec - d.central)} de plus sur ${horizonInd} mois.`),
           h("p", { class: "note" }, "Calculé sur la moyenne des 3 derniers mois pour les comptes suivis, échéancier compris. Les opérations sans catégorie et les catégories non classées sont conservées."));
       }
-      noeuds.push(h("div", { class: "carte" }, ...contenu));
+      noeuds.push(h("div", { class: "carte", "data-resume": resumeInd }, ...contenu));
     }
 
     // Plus gros postes de confort
