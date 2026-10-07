@@ -101,6 +101,12 @@ export function monter(conteneur) {
         h("div", { class: "ligne-synthese" }, h("span", {}, "Reste en moyenne"), h("strong", { class: "montant " + (p.echeancierRevenus - p.echeancierDepenses + p.moyNet < 0 ? "neg" : "pos") }, euros(p.echeancierRevenus - p.echeancierDepenses + p.moyNet))),
         h("p", { class: "note" }, `Échéancier : moyenne mensuelle des échéances prévues sur ${horizon} mois (salaire, loyer, abonnements…), hors virements. Hors échéancier : moyenne des ${p.nbMois || 0} dernier(s) mois complet(s) pour les dépenses et recettes qui ne viennent pas de l'échéancier.` + (p.nbMois < 2 ? " L'historique est court : la fourchette entre scénarios sera étroite." : ""))));
 
+      // Échéances lues (diagnostic)
+      noeuds.push(h("details", { class: "carte tableau-proj" }, h("summary", {}, `Échéances prises en compte (${p.lues.length}) et ignorées (${p.ignorees.length})`),
+        p.lues.length ? h("ul", { class: "puces" }, p.lues.map((x) => h("li", {}, `${x.nom} : ${euros(x.montant)}, ${x.frequence}, prochaine le ${dateFr(x.prochaine)}`))) : h("p", { class: "note" }, "Aucune échéance prise en compte."),
+        p.ignorees.length ? h("p", { class: "note" }, "Ignorées :") : null,
+        p.ignorees.length ? h("ul", { class: "puces" }, p.ignorees.map((x) => h("li", {}, `${x.nom} (${euros(x.montant)}) : ${x.raison}`))) : null));
+
       // Projection
       const dernier = p.points[p.points.length - 1];
       const tip = h("p", { class: "tip-proj", "aria-live": "polite" });

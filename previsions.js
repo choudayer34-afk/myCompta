@@ -6,7 +6,7 @@ import { repartitionDepenses } from "./bilancalc.js";
 import { racines } from "./economies.js";
 
 const RARES = new Set(["trimestriel", "semestriel", "annuel"]);   // échéances non mensuelles, listées à part
-const estVirement = (o) => o.virementId || o.nature === "virement";
+const estVirement = (o) => !!o.virementId;
 const ajustement = (o) => o.nom === "Ajustement de solde";
 const suivisDe = (comptes, comptesIds) => new Map(comptes.filter((c) => (comptesIds.length ? comptesIds.includes(c.id) : !c.archive)).map((c) => [c.id, c]));
 const cleNom = (n) => String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[0-9]+/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
@@ -51,10 +51,18 @@ export function projection({ operations, comptes, comptesIds = [], planifiees = 
   const fin = bornesMois(moisDecale(mois, horizon))[1];
   const indice = (d) => { const [a, m] = d.slice(0, 7).split("-").map(Number); const [a0, m0] = mois.split("-").map(Number); return Math.max(1, (a - a0) * 12 + (m - m0)); };
   // Échéances à venir (celles déjà créées sont dans le solde en cours ; « prochaine » est la première pas encore créée)
-  const prevues = [];
+  const prevues = [], lues = [], ignorees = [];
+  const nomCompte = new Map(comptes.map((c) => [c.id, c.nom]));
   for (const p of planifiees) {
-    if (!p.prochaine || !p.frequence || p.virementCompteId || p.nature === "virement" || !suivis.has(p.compteId)) continue;
-    for (const d of echeancesDues(p, fin).dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: Math.round(p.montant * partCompte(suivis.get(p.compteId)) / 100) });
+    const raison = !p.prochaine || !p.frequence ? "sans fréquence ou sans prochaine date"
+      : p.virementCompteId && suivis.has(p.virementCompteId) && suivis.has(p.compteId) ? "virement entre comptes suivis (non compté)"
+      : !suivis.has(p.compteId) ? `compte « ${nomCompte.get(p.compteId) || "?"} » non pris en compte`
+      : null;
+    if (raison) { ignorees.push({ nom: p.nom, montant: p.montant, raison }); continue; }
+    const dates = echeancesDues(p, fin).dates;
+    if (!dates.length) { ignorees.push({ nom: p.nom, montant: p.montant, raison: p.dateFin && p.prochaine > p.dateFin ? "terminée (date de fin dépassée)" : `prochaine échéance le ${p.prochaine}, au-delà de l'horizon` }); continue; }
+    lues.push({ nom: p.nom, montant: p.montant, frequence: p.frequence, prochaine: p.prochaine, nb: dates.length });
+    for (const d of dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: Math.round((p.virementCompteId ? -Math.abs(p.montant) : p.montant) * partCompte(suivis.get(p.compteId)) / 100) });
   }
   if (!flux.length && !prevues.length) return { insuffisant: true };
   const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);
@@ -70,6 +78,7 @@ export function projection({ operations, comptes, comptesIds = [], planifiees = 
   return { insuffisant: false, solde, points, moyNet, minNet, maxNet, nbMois: flux.length,
     moyRevenus: moy(flux.map((f) => f.revenus)), moyDepenses: moy(flux.map((f) => f.depenses)),
     echeancierRevenus: Math.round(rev / horizon), echeancierDepenses: Math.round(dep / horizon),
+    lues, ignorees,
     ponctuels: prevues.filter((x) => RARES.has(x.frequence)).sort((a, b) => (a.date < b.date ? -1 : 1)), premierNegatif };
 }
 
