@@ -22,17 +22,45 @@ function parCompte(ops, ligne) {
     .flatMap(([id, l]) => [...(multi ? [{ entete: nomCompte(id), montant: l.reduce((s, o) => s - o.montant, 0) }] : []), ...l.map(ligne)]);
 }
 const ouverts = new Set();
-// Liste dépliable ; chaque ligne : [date, nom, montant, action?] avec action = { libelle, fait }
+const recherches = new Map();
+const SYMBOLES = { Retirer: "✕", Remettre: "↺", Ajouter: "+", "Déduire": "+" };
+// Liste dépliable avec recherche (nom ou prix) ; chaque ligne : [date, nom, montant, action?] avec action = { libelle, fait }
 function detail(titre, lignes, cle = titre) {
   const nb = lignes.filter((x) => !x.entete).length;
   const rendu = (x) => {
-    if (x.entete) return h("div", { class: "ligne-synthese" }, h("strong", {}, x.entete), h("strong", {}, euros(x.montant)));
+    if (x.entete) { const e = h("div", { class: "ligne-synthese" }, h("strong", {}, x.entete), h("strong", {}, euros(x.montant))); e.dataset.entete = "1"; return e; }
     const [dt, nom, m, act] = x;
-    return h("div", { class: "ligne-synthese" }, h("span", {}, dt ? `${dt} · ${nom}` : nom),
-      h("span", {}, h("strong", {}, euros(m)), act ? h("button", { type: "button", class: "sec bouton-choix", style: "margin-left:8px", onclick: act.fait }, act.libelle) : null));
+    const r = h("div", { class: "ligne-synthese" }, h("span", {}, dt ? `${dt} · ${nom}` : nom),
+      h("span", { class: "droite-ligne" }, h("strong", {}, euros(m)),
+        act ? h("button", { type: "button", class: "mini-action", title: act.libelle, "aria-label": act.libelle, onclick: act.fait }, SYMBOLES[act.libelle] || "•") : null));
+    r.dataset.texte = `${dt} ${nom}`.toLowerCase();
+    r.dataset.prix = (Math.abs(m) / 100).toFixed(2);
+    return r;
   };
+  const liste = h("div", {}, ...lignes.map(rendu));
+  const filtrer = (q) => {
+    recherches.set(cle, q);
+    const txt = q.trim().toLowerCase(), num = txt.replace(/[\s€]/g, "").replace(",", ".");
+    let visible = 0;
+    const lignesDom = [...liste.children];
+    lignesDom.forEach((el, i) => {
+      if (el.dataset.entete) return;
+      const ok = !txt || el.dataset.texte.includes(txt) || (num && el.dataset.prix.includes(num));
+      el.style.display = ok ? "" : "none"; if (ok) visible++;
+    });
+    lignesDom.forEach((el, i) => {
+      if (!el.dataset.entete) return;
+      let ok = false;
+      for (let j = i + 1; j < lignesDom.length && !lignesDom[j].dataset.entete; j++) if (lignesDom[j].style.display !== "none") ok = true;
+      el.style.display = ok ? "" : "none";
+    });
+    vide.style.display = txt && !visible ? "" : "none";
+  };
+  const vide = h("p", { class: "note", style: "display:none" }, "Aucun résultat.");
+  const champRecherche = h("input", { type: "search", class: "recherche-detail", placeholder: "Rechercher un prix ou un nom", value: recherches.get(cle) || "", "aria-label": "Rechercher", oninput: (e) => filtrer(e.target.value) });
   const d = h("details", { class: "tableau-proj", open: ouverts.has(cle) ? true : null }, h("summary", {}, `${titre} (${nb})`),
-    lignes.length ? h("div", {}, ...lignes.map(rendu)) : h("p", { class: "note" }, "Aucune dépense."));
+    lignes.length ? h("div", {}, nb > 1 ? champRecherche : null, liste, vide) : h("p", { class: "note" }, "Aucune dépense."));
+  if (nb > 1 && recherches.get(cle)) filtrer(recherches.get(cle));
   d.addEventListener("toggle", () => { if (d.open) ouverts.add(cle); else ouverts.delete(cle); });
   return d;
 }

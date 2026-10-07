@@ -75,7 +75,7 @@ const GUIDES = {
     "Touche un résultat pour l'ouvrir."] },
   duo: { titre: "Duo", but: "Partager les dépenses à deux et savoir qui doit quoi.", points: [
     "« Paramètres » : noms, salaires bruts (avec leur historique) et coefficient brut vers net. La répartition suit les revenus nets.",
-    "Tes dépenses partagées sont tes opérations du mois marquées « Inclure dans l'export ». Dans le détail, « Retirer » écarte une opération en trop, « Ajouter » en intègre une qui manque, « Déduire » compte un remboursement.",
+    "Tes dépenses partagées sont tes opérations du mois marquées « Inclure dans l'export ». Dans le détail, la petite icône à droite du prix écarte (✕) une opération en trop, en remet une (↺), en intègre une qui manque ou déduit un remboursement (+). Le champ de recherche trouve un nom ou un prix.",
     "Les dépenses de l'autre personne se saisissent dans la grille : un montant par ligne, Entrée pour passer à la suivante, ou colle plusieurs cellules Excel d'un coup.",
     "« Dépenses récurrentes » : une dépense reprise chaque mois jusqu'à ce que tu la retires.",
     "« Provision du compte commun » : les lignes prélevées sur le compte joint, avec leur mode de partage. Une ligne annuelle est lissée sur 12 mois et la case « crédit » alimente le taux d'endettement.",

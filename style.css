@@ -526,3 +526,8 @@ details.bloc-repliable > .repli-corps { margin-top:10px; }
 .proj .l-duo-tend { fill:none; stroke:var(--texte); stroke-width:1.5; stroke-dasharray:5 4; opacity:.8; }
 .proj .c-duo-prov { fill:var(--s0); } .proj .c-duo-part { fill:var(--s1); } .proj .c-duo-perso { fill:var(--s6); }
 .titre-graphe { margin:14px 0 0; font-size:.95rem; font-weight:600; }
+
+/* v79 : détails du duo, action discrète et recherche */
+.droite-ligne { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
+.mini-action { width:26px; height:26px; min-width:0; padding:0; margin:0; border:1px solid var(--bord); border-radius:50%; background:transparent; color:var(--discret); font-size:.8rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
+.recherche-detail { margin:6px 0; padding:8px 10px; font-size:.9rem; }
