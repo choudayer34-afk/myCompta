@@ -402,3 +402,20 @@ h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-wei
 .grille-plus { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
 .carte-plus { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; background:var(--carte); border:1px solid var(--bord); border-radius:14px; padding:6px 4px; height:calc((100vh - 230px - var(--hauteur-nav)) / 5); min-height:84px; max-height:120px; color:var(--texte); text-decoration:none; font:inherit; font-size:.8rem; line-height:1.15; cursor:pointer; }
 .carte-plus .ico { font-size:1.7rem; line-height:1; }
+
+/* v43 : verrouillage */
+body.masque > header, body.masque > main, body.masque > nav { visibility:hidden; }
+.verrou { position:fixed; inset:0; z-index:1000; background:var(--fond); display:flex; align-items:center; justify-content:center; padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+.verrou-corps { width:100%; max-width:320px; text-align:center; }
+.verrou-ico { font-size:2.2rem; }
+.verrou h2 { margin:4px 0 14px; font-size:1.15rem; }
+.points { display:flex; justify-content:center; gap:12px; margin-bottom:8px; }
+.point { width:14px; height:14px; border-radius:50%; border:2px solid var(--accent); box-sizing:border-box; }
+.point.plein { background:var(--accent); }
+.verrou-msg { min-height:1.3em; margin:4px 0 8px; color:var(--danger); font-size:.9rem; }
+.pave { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; justify-items:center; }
+.touche { width:72px; height:72px; border-radius:50%; font-size:1.6rem; background:var(--carte); color:var(--texte); border:1px solid var(--bord); padding:0; }
+.touche.bio, .touche.eff { font-size:1.4rem; background:transparent; border-color:transparent; }
+.lien-oubli { margin-top:18px; background:none; border:0; color:var(--discret); text-decoration:underline; font-size:.85rem; }
+.verrou.secoue .points { animation:secoue .35s; }
+@keyframes secoue { 25% { transform:translateX(-8px); } 75% { transform:translateX(8px); } }

@@ -12,6 +12,7 @@ import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
 import * as vuePlus from "./plus.js";
+import { initVerrou, surConnexion } from "./verrou.js";
 import { majAlertes, majPointage, majPastille, comptesPastille } from "./alertes.js";
 import { VERSION } from "./version.js";
 
@@ -77,6 +78,7 @@ $("form-connexion").addEventListener("submit", async (e) => {
   }
 });
 $("btn-sortie").addEventListener("click", () => signOut(auth));
+initVerrou({ surDeconnexion: () => signOut(auth) });
 
 // Ajout rapide d'une dépense (compte courant par défaut) et lecture d'un ticket, depuis n'importe quel écran
 function nouvelleDepense(modele = null, compteId = null) {
@@ -165,6 +167,7 @@ onAuthStateChanged(auth, (user) => {
   $("btn-ticket").classList.toggle("cache", !connecte);
   $("btn-voix").classList.toggle("cache", !connecte);
   $("nav").classList.toggle("cache", !connecte);
+  surConnexion(connecte);
   if (user) {
     demarrer(user.uid);
     naviguer();
