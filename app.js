@@ -12,6 +12,7 @@ import * as vueEcheancier from "./echeancier.js";
 import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
 import * as vuePlus from "./plus.js";
+import * as vueEconomies from "./economiesui.js";
 import { initVerrou, surConnexion } from "./verrou.js";
 import { majAlertes, majPointage, majPastille, comptesPastille } from "./alertes.js";
 import { VERSION } from "./version.js";
@@ -129,6 +130,9 @@ function naviguer() {
   } else if (hash === "#/budgets" || hash === "#/bilan") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);
+  } else if (hash === "#/economies") {
+    onglet = "plus";
+    vue = vueEconomies.monter(principal);
   } else if (hash === "#/plus") {
     onglet = "plus";
     vue = vuePlus.monter(principal);

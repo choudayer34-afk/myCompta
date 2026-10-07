@@ -429,3 +429,17 @@ body.masque > header, body.masque > main, body.masque > nav { visibility:hidden;
 .objectif.compact { margin:4px 0 2px; }
 .objectif.compact small { display:block; color:var(--discret); margin-bottom:2px; }
 .objectif.compact .objectif-barre { height:6px; }
+
+/* v45 : écran Économies */
+.barre-usage { display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--bord); margin:8px 0; }
+.u-essentiel { background:var(--s0); } .u-confort { background:var(--s1); } .u-autre { background:var(--sx); }
+.barre-usage span { display:block; height:100%; }
+.legende-usage { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.82rem; color:var(--discret); }
+.legende-usage i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; }
+.ligne-eco { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-top:1px solid var(--bord); }
+.ligne-eco:first-child { border-top:0; }
+.eco-texte { display:flex; flex-direction:column; min-width:0; }
+.eco-texte small { color:var(--discret); }
+.ligne-eco .montant { white-space:nowrap; font-weight:600; }
+.ligne-classement { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0; }
+.ligne-classement select { max-width:50%; }
