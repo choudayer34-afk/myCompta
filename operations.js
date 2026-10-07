@@ -1,3 +1,4 @@
+import { blocObjectif } from "./objectif.js";
 import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele, comparerComptes } from "./store.js";
 import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
@@ -30,6 +31,7 @@ export function monter(conteneur, { id }) {
 
   const titre = h("strong", { class: "titre-vue" });
   const solde = h("div", { class: "solde-bloc" });   // solde pointé (grand) + en cours (italique, plus petit)
+  const objectifVue = h("div", { class: "objectif-vue" });
   const detailSolde = h("div", { class: "solde-vue" });   // nombre d'opérations à pointer
   const enTete = h("div", { class: "entete-vue" },
     h("a", { href: "#/comptes", class: "retour" }, "‹ Comptes"), titre,
@@ -74,7 +76,7 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
@@ -102,6 +104,7 @@ export function monter(conteneur, { id }) {
     solde.replaceChildren(
       h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
       h("em", { class: "solde-encours" }, `pointé : ${euros(pointe)}`));
+    objectifVue.replaceChildren(blocObjectif(c, enCours, aujourdhui()));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
     const modeles = habitudes(id, etat.operations, aujourdhui(), exclus);

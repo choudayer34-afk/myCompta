@@ -419,3 +419,13 @@ body.masque > header, body.masque > main, body.masque > nav { visibility:hidden;
 .lien-oubli { margin-top:18px; background:none; border:0; color:var(--discret); text-decoration:underline; font-size:.85rem; }
 .verrou.secoue .points { animation:secoue .35s; }
 @keyframes secoue { 25% { transform:translateX(-8px); } 75% { transform:translateX(8px); } }
+
+/* v44 : objectif d'épargne */
+.objectif { margin:8px 0; }
+.objectif-titre { display:flex; justify-content:space-between; align-items:baseline; font-size:.9rem; margin-bottom:4px; }
+.objectif-barre { height:10px; border-radius:5px; background:var(--bord); overflow:hidden; }
+.objectif-barre span { display:block; height:100%; background:var(--accent); border-radius:5px; }
+.objectif-detail { display:block; margin-top:4px; color:var(--discret); }
+.objectif.compact { margin:4px 0 2px; }
+.objectif.compact small { display:block; color:var(--discret); margin-bottom:2px; }
+.objectif.compact .objectif-barre { height:6px; }

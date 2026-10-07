@@ -6,6 +6,7 @@ import { dernierSauvegarde } from "./sauvegardeui.js";
 import { activiteCompte, joursEntre } from "./activite.js";
 import { dateFr } from "./format.js";
 import { formPastille } from "./alertes.js";
+import { blocObjectif } from "./objectif.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -53,6 +54,8 @@ export function formCompte(compte = null) {
   const iCouleur = h("input", { type: "color", value: compte?.couleur || couleurAuHasard() });
   const iPart = h("input", { type: "text", inputmode: "decimal", value: String(compte ? partCompte(compte) : 100).replace(".", ",") });
   const cPart = champ("Ma part du solde (%) – 50 pour un compte joint à moitié", iPart);
+  const iObjectif = h("input", { type: "text", inputmode: "decimal", placeholder: "laisser vide : pas d'objectif", autocomplete: "off", value: compte?.objectifMontant ? versSaisie(compte.objectifMontant) : "" });
+  const iObjDate = h("input", { type: "date", value: compte?.objectifDate || "" });
   const iEtat = selecteur([["actif", "Actif"], ["archive", "Archivé"]], compte?.archive ? "archive" : "actif");
   const erreur = h("p", { class: "erreur" });
 
@@ -71,7 +74,7 @@ export function formCompte(compte = null) {
 
   const { dialogue, formulaire } = modale(compte ? "Modifier le compte" : "Nouveau compte", [
     champ("Nom", iNom), champ("Type", iType), champ("Date d'ouverture", iOuv),
-    champ("Solde initial (€)", iSolde), cEnCours, cPointe, cDateAjust, champ("Couleur", iCouleur), cPart, champ("État", iEtat), erreur, actions
+    champ("Solde initial (€)", iSolde), cEnCours, cPointe, cDateAjust, champ("Couleur", iCouleur), cPart, champ("Objectif d'épargne (€)", iObjectif), champ("Date cible (facultatif)", iObjDate), champ("État", iEtat), erreur, actions
   ]);
 
   formulaire.addEventListener("submit", (e) => {
@@ -80,6 +83,8 @@ export function formCompte(compte = null) {
     if (solde === null) { erreur.textContent = "Solde initial invalide."; return; }
     const part = Number(String(iPart.value).replace(/\s/g, "").replace(",", "."));
     if (!Number.isFinite(part) || part < 0 || part > 100 || iPart.value.trim() === "") { erreur.textContent = "La part doit être comprise entre 0 et 100."; return; }
+    let objectif = null;
+    if (iObjectif.value.trim()) { objectif = versCentimes(iObjectif.value); if (objectif === null || objectif <= 0) { erreur.textContent = "Objectif invalide."; return; } }
     const id = compte?.id || nouvelId("comptes");
     const l = lot();
     if (compte && iPointe.value.trim() && versCentimes(iPointe.value) === null) { erreur.textContent = "Solde pointé invalide."; return; }
@@ -94,6 +99,7 @@ export function formCompte(compte = null) {
     l.set("comptes", id, {
       nom: iNom.value.trim(), type: iType.value, dateOuverture: iOuv.value || null,
       soldeInitial: solde, couleur: iCouleur.value, archive: iEtat.value === "archive", part,
+      objectifMontant: objectif, objectifDate: objectif && iObjDate.value ? iObjDate.value : null,
       ...(compte ? {} : { ordre: etat.comptes.reduce((m, c) => Math.max(m, Number.isFinite(c.ordre) ? c.ordre : -1), -1) + 1 })
     });
     l.envoyer();
@@ -154,6 +160,7 @@ export function monter(conteneur) {
     const corps = h("a", { class: "corps", href: `#/compte/${c.id}` },
       h("div", { class: "gauche" },
         h("strong", {}, c.nom),
+        blocObjectif(c, soldeCompte(c, etat.operations), aujourdhui(), true),
         h("small", {}, (TYPES_COMPTE.find((t) => t[0] === c.type) || [0, ""])[1] + (partCompte(c) < 100 ? ` · ma part ${String(partCompte(c)).replace(".", ",")} %` : "")),
         (() => {
           const a = activiteCompte(c, etat.operations);
