@@ -13,7 +13,8 @@ import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
 import * as vuePlus from "./plus.js";
 import * as vueEconomies from "./economiesui.js";
-import { initVerrou, surConnexion } from "./verrou.js";
+import { initVerrou, surConnexion, estVerrouille } from "./verrou.js";
+import { lireTexteExterne, traiterTexteExterne } from "./saisieexterne.js";
 import { majAlertes, majPointage, majPastille, comptesPastille } from "./alertes.js";
 import { VERSION } from "./version.js";
 
@@ -88,6 +89,14 @@ function nouvelleDepense(modele = null, compteId = null) {
   if (!c && !compteId) { alert("Créez d'abord un compte."); return; }
   vueOperations.formOperation({ compteId: compteId || c.id, modele });
 }
+// Saisie lancée depuis un Raccourci iPhone : …/?dicte=texte. Traitée dès que les données sont à jour et l'application déverrouillée.
+let texteExterne = lireTexteExterne();
+function tenterSaisieExterne() {
+  if (!texteExterne || !auth.currentUser || !donneesFiables() || estVerrouille()) return;
+  const t = texteExterne; texteExterne = null;
+  traiterTexteExterne(t, ({ compteId, modele }) => nouvelleDepense(modele, compteId));
+}
+window.addEventListener("compta-deverrouille", tenterSaisieExterne);
 $("btn-voix").addEventListener("click", () => {
   if (!pret() || !compteDepenseParDefaut()) { alert("Créez d'abord un compte."); return; }
   dicterDepense((r) => nouvelleDepense({
@@ -159,7 +168,7 @@ function tenterGeneration() {
   try { vueEcheancier.genererEcheances(); } catch (e) { console.error(e); }
   generationEnCours = false;
 }
-abonner(() => { if (vue && vue.maj) vue.maj(); rafraichirAlertes(); tenterGeneration(); });
+abonner(() => { if (vue && vue.maj) vue.maj(); rafraichirAlertes(); tenterGeneration(); tenterSaisieExterne(); });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tenterGeneration(); });
 
 onAuthStateChanged(auth, (user) => {

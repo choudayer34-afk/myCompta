@@ -53,6 +53,7 @@ let ecran = null, saisie = "", occupe = false, deconnexion = () => {};
 let dernierPassage = 0, minuteur = null, auPremierPlan = true;
 
 const verrouille = () => !!ecran;
+export const estVerrouille = verrouille;
 
 function afficherPoints() {
   if (!ecran) return;
@@ -63,6 +64,7 @@ function message(t) { if (ecran) ecran.querySelector(".verrou-msg").textContent 
 function deverrouiller() {
   if (ecran) { ecran.remove(); ecran = null; }
   saisie = ""; dernierPassage = Date.now(); armer();
+  window.dispatchEvent(new Event("compta-deverrouille"));
 }
 
 async function essayer() {
