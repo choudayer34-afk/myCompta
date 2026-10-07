@@ -4,6 +4,7 @@ import { auth } from "./firebase.js";
 import { demarrer, arreter, abonner, donneesFiables, pret, compteDepenseParDefaut } from "./store.js";
 import { scannerTicket } from "./scanner.js";
 import { dicterDepense } from "./voix.js";
+import { afficherAide } from "./aide.js";
 import * as vueComptes from "./comptes.js";
 import * as vueOperations from "./operations.js";
 import * as vueCategories from "./categories.js";
@@ -101,6 +102,7 @@ function tenterSaisieExterne() {
   traiterTexteExterne(t, ({ compteId, modele }) => nouvelleDepense(modele, compteId));
 }
 window.addEventListener("compta-deverrouille", tenterSaisieExterne);
+$("btn-aide").addEventListener("click", () => afficherAide(location.hash));
 $("btn-recherche").addEventListener("click", () => { location.hash = "#/recherche"; });
 $("btn-voix").addEventListener("click", () => {
   if (!pret() || !compteDepenseParDefaut()) { alert("Créez d'abord un compte."); return; }
@@ -198,6 +200,7 @@ onAuthStateChanged(auth, (user) => {
   $("btn-ticket").classList.toggle("cache", !connecte);
   $("btn-voix").classList.toggle("cache", !connecte);
   $("btn-recherche").classList.toggle("cache", !connecte);
+  $("btn-aide").classList.toggle("cache", !connecte);
   $("nav").classList.toggle("cache", !connecte);
   surConnexion(connecte);
   if (user) {
