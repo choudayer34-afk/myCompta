@@ -18,6 +18,7 @@ export function monter(conteneur) {
       carte("💾", "Sauvegarde", () => { location.hash = "#/export"; setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 200); }),
       carte("🔴", "Pastille à pointer", () => formPastille()),
       carte("👥", "Comptes suivis", () => formComptes()),
+      carte("📈", "Projection", aller("#/previsions")),
       carte("💡", "Économies", aller("#/economies")),
       carte("🔒", "Verrouillage", () => formVerrou()),
       carte("🔄", "Mise à jour", () => { const b = document.getElementById("version"); if (b) b.click(); })));

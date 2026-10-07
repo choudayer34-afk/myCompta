@@ -460,3 +460,30 @@ label.ligne-eco { cursor:pointer; }
 .etat-ligne .case.avert { color:var(--alerte); }
 .bouton-choix { width:100%; text-align:left; background:none; border:0; color:inherit; font:inherit; cursor:pointer; }
 .cat-planifiee { color:var(--accent); }
+
+/* v52 : projection et aide à la décision */
+.titre-carte { margin:0 0 8px; font-size:1rem; }
+.proj { display:block; width:100%; margin:8px 0 2px; }
+.proj .grille { stroke:var(--bord); stroke-width:1; }
+.proj .zero { stroke:var(--discret); stroke-width:1.25; }
+.proj .lib-proj { fill:var(--discret); font-size:9px; }
+.proj .bande-proj { fill:var(--s0); opacity:.14; }
+.proj .l-central { fill:none; stroke:var(--s0); stroke-width:2; stroke-linejoin:round; }
+.proj .l-prudent, .proj .l-favorable { fill:none; stroke:var(--s0); stroke-width:1.25; stroke-dasharray:4 3; opacity:.75; }
+.proj .l-avec { fill:none; stroke:var(--s2); stroke-width:2; stroke-linejoin:round; }
+.proj .croix { stroke:var(--discret); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+.proj .pt-central, .proj .pt-prudent, .proj .pt-favorable { fill:var(--s0); stroke:var(--surface); stroke-width:2; }
+.proj .pt-avec { fill:var(--s2); stroke:var(--surface); stroke-width:2; }
+.sw-central, .sw-avec, .sw-prudent, .sw-favorable { height:3px !important; border-radius:2px; vertical-align:middle; width:16px !important; }
+.sw-central { background:var(--s0); } .sw-avec { background:var(--s2); }
+.sw-prudent, .sw-favorable { background:repeating-linear-gradient(90deg,var(--s0) 0 4px,transparent 4px 7px); }
+.tip-proj { min-height:2.4em; margin:6px 0; font-size:.88rem; color:var(--texte); }
+.avert-proj { color:var(--alerte); }
+.tableau-proj { margin:6px 0; font-size:.85rem; }
+.tableau-proj table { width:100%; border-collapse:collapse; margin-top:6px; }
+.tableau-proj th, .tableau-proj td { text-align:right; padding:4px 3px; border-top:1px solid var(--bord); }
+.tableau-proj th:first-child, .tableau-proj td:first-child { text-align:left; }
+.bloc-objectif { display:flex; flex-direction:column; gap:2px; padding:8px 0; border-top:1px solid var(--bord); }
+.bloc-objectif:first-of-type { border-top:0; }
+.bloc-objectif small { color:var(--discret); }
+.bloc-objectif small.avert-proj { color:var(--alerte); }

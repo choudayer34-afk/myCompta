@@ -15,6 +15,7 @@ import * as vuePlus from "./plus.js";
 import * as vueEconomies from "./economiesui.js";
 import * as vueReleve from "./releveui.js";
 import * as vueRecherche from "./rechercheui.js";
+import * as vuePrevisions from "./previsionsui.js";
 import { initVerrou, surConnexion, estVerrouille } from "./verrou.js";
 import { lireTexteExterne, traiterTexteExterne } from "./saisieexterne.js";
 import { majAlertes, majPointage, majPastille, comptesPastille } from "./alertes.js";
@@ -141,6 +142,9 @@ function naviguer() {
   } else if (hash === "#/budgets" || hash === "#/bilan") {
     onglet = "budgets";
     vue = vueBudgets.monter(principal);
+  } else if (hash === "#/previsions") {
+    onglet = "plus";
+    vue = vuePrevisions.monter(principal);
   } else if (hash === "#/recherche") {
     onglet = "plus";
     vue = vueRecherche.monter(principal);

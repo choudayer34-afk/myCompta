@@ -101,10 +101,10 @@ export function monter(conteneur) {
   }
 
   function afficher() {
-    const visible = (it) => filtre === "tout" || (filtre === "verifier" ? (it.mode === "creer" || it.mode === "ignorer" || !!montantDiff(it)) : it.mode === "op" || it.mode === "deja");
+    const visible = (it) => filtre === "tout" || (filtre === "verifier" ? (it.mode === "creer" || it.mode === "ignorer" || !!montantDiff(it)) : filtre === "apointer" ? it.mode === "op" : it.mode === "op" || it.mode === "deja");
     const bouton = (id, lib) => h("button", { type: "button", class: "sec" + (filtre === id ? " actif-filtre" : ""), onclick: () => { filtre = id; afficher(); } }, lib);
     majResume();
-    const noeuds = [compteur, h("div", { class: "modes-bilan" }, bouton("tout", "Toutes"), bouton("verifier", "À vérifier"), bouton("rapprochees", "Rapprochées"))];
+    const noeuds = [compteur, h("div", { class: "modes-bilan" }, bouton("tout", "Toutes"), bouton("apointer", "À pointer"), bouton("verifier", "À vérifier"), bouton("rapprochees", "Rapprochées"))];
 
     const lignes = items.filter(visible);
     noeuds.push(h("div", { class: "carte-jour" }, lignes.length ? lignes.map((it) => {
