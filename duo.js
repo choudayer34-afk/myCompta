@@ -94,3 +94,18 @@ export function evolution({ params, mois, qui, n = 12, decale }) {
 // Dépenses récurrentes de la seconde personne actives un mois donné : [{ id, nom, montant, depuis, fin }]
 export const recurrentesDuMois = (params, mois) =>
   ((params && params.recurrentes) || []).filter((r) => r.montant > 0 && (!r.depuis || r.depuis <= mois) && (!r.fin || mois <= r.fin));
+
+// Texte collé (cellules Excel, une par ligne) -> montants en centimes positifs ; les cellules illisibles sont ignorées.
+// Accepte « 12,5 », « 12.5 », « 1 234,56 € », « 1.234,56 » et « 1,234.56 » ; le signe est ignoré.
+export function montantsDepuisTexte(texte) {
+  return String(texte ?? "").split(/[\r\n\t;]+/).map((c) => {
+    let t = c.replace(/[^0-9.,]/g, "");
+    if (!/[0-9]/.test(t)) return null;
+    const p = t.lastIndexOf("."), v = t.lastIndexOf(",");
+    const sep = Math.max(p, v);
+    if (sep >= 0 && t.length - sep - 1 <= 2 && sep > 0 || (sep === 0 && t.length - 1 <= 2)) t = t.slice(0, sep).replace(/[.,]/g, "") + "." + t.slice(sep + 1);
+    else t = t.replace(/[.,]/g, "");
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? Math.round(n * 100) : null;
+  }).filter((x) => x !== null && x > 0);
+}

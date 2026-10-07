@@ -3,7 +3,7 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, brutEnVigueur, vueBilan, evolution, recurrentesDuMois } from "./duo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -179,7 +179,29 @@ export function monter(conteneur) {
         if (k === inputs.length - 1) { const n = ligne(""); inputs.push(n); grille.append(n); n.focus(); } else inputs[k + 1].focus();
       });
       i.addEventListener("input", () => { saisie = inputs.map((x) => x.value); majTotaux(); });
-      i.addEventListener("change", () => enregistrerMois({ ale: montantsSaisis() }));
+      i.addEventListener("change", () => {
+        const m = montantsDepuisTexte(i.value);
+        i.value = m.length ? versSaisie(m[0]) : "";   // un montant lisible est réécrit au format « 12,50 »
+        saisie = inputs.map((x) => x.value); majTotaux();
+        enregistrerMois({ ale: montantsSaisis() });
+      });
+      // Collage de plusieurs cellules (une par ligne) : une ligne par montant, au format numérique
+      i.addEventListener("paste", (e) => {
+        const texte = (e.clipboardData || window.clipboardData).getData("text");
+        const m = montantsDepuisTexte(texte);
+        if (!m.length) return;
+        e.preventDefault();
+        let k = inputs.indexOf(i);
+        for (const c of m) {
+          if (k >= inputs.length) { const n = ligne(""); inputs.push(n); grille.append(n); }
+          inputs[k].value = versSaisie(c);
+          k++;
+        }
+        if (inputs[inputs.length - 1].value) { const n = ligne(""); inputs.push(n); grille.append(n); }
+        inputs[Math.min(k, inputs.length - 1)].focus();
+        saisie = inputs.map((x) => x.value); majTotaux();
+        enregistrerMois({ ale: montantsSaisis() });
+      });
       return i;
     };
     const valeurs = (docMois(mois).ale || []).map((c) => versSaisie(c));
@@ -272,7 +294,7 @@ export function monter(conteneur) {
     const nbOps = operationsPartagees(etat.operations, mois, optsMois()).length;
     corps.replaceChildren(
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses saisies : ${P.nomAle}`),
-        h("p", { class: "note" }, "Un montant par ligne. Entrée passe à la ligne suivante."), grille),
+        h("p", { class: "note" }, "Un montant par ligne. Entrée passe à la ligne suivante. Tu peux aussi coller plusieurs cellules Excel d'un coup."), grille),
       carteRecurrentes(P),
       h("p", { class: "note" }, `${P.nomChr} : ${nbOps} opération(s) comptée(s) ce mois-ci (marquées « à exporter »).`),
       zoneTotaux);
