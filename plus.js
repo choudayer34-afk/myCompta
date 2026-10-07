@@ -11,6 +11,7 @@ export function monter(conteneur) {
   conteneur.replaceChildren(
     h("h2", {}, "Plus"),
     h("div", { class: "grille-plus" },
+      carte("🔍", "Recherche", aller("#/recherche")),
       carte("📥", "Import", aller("#/import")),
       carte("🏦", "Relevé bancaire", aller("#/releve")),
       carte("📤", "Export Excel", aller("#/export")),

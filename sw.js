@@ -1,4 +1,4 @@
-const VERSION = "v47";
+const VERSION = "v48";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
@@ -39,6 +39,8 @@ const COQUILLE = [
   "./saisieexterne.js",
   "./releve.js",
   "./releveui.js",
+  "./recherche.js",
+  "./rechercheui.js",
   "./alertes.js",
   "./version.js",
   "./activite.js",
