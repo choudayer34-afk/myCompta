@@ -443,3 +443,9 @@ body.masque > header, body.masque > main, body.masque > nav { visibility:hidden;
 .ligne-eco .montant { white-space:nowrap; font-weight:600; }
 .ligne-classement { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0; }
 .ligne-classement select { max-width:50%; }
+
+/* v47 : relevé bancaire */
+label.ligne-eco { cursor:pointer; }
+.ligne-eco input[type=checkbox] { flex:0 0 auto; width:20px; height:20px; }
+.ligne-eco .eco-texte { flex:1; }
+.ligne-eco .eco-texte input[type=text] { width:100%; box-sizing:border-box; }

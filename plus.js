@@ -12,6 +12,7 @@ export function monter(conteneur) {
     h("h2", {}, "Plus"),
     h("div", { class: "grille-plus" },
       carte("📥", "Import", aller("#/import")),
+      carte("🏦", "Relevé bancaire", aller("#/releve")),
       carte("📤", "Export Excel", aller("#/export")),
       carte("💾", "Sauvegarde", () => { location.hash = "#/export"; setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 200); }),
       carte("🔴", "Pastille à pointer", () => formPastille()),
