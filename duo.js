@@ -131,3 +131,35 @@ export function capaciteEmprunt({ net, creditExistant = 0, taux = 0, ans = 20, a
   return { mensualiteMax, capital, interets, assuranceTotale, coutTotal: interets + assuranceTotale, mois: n,
     deborde: net > 0 && creditExistant > net * seuil };
 }
+
+// Série mensuelle du duo pour les graphiques : [{ mois, recettes, provision, partages, perso, depenses, restant, reel }]
+// `qui` : "chr", "ale" ou "tous". Les mois sans aucune saisie ni opération ne comptent que la provision (reel = false).
+export function serieDuo({ params, operations = [], reglages = [], mois, n = 12, decale, qui = "tous" }) {
+  const serie = [];
+  for (let k = n - 1; k >= 0; k--) {
+    const m = decale(mois, -k);
+    const d = reglages.find((r) => r.id === "duo_" + m) || {};
+    const opts = { exclus: d.exclus || [], inclus: d.inclus || [] };
+    const ops = operationsPartagees(operations, m, opts);
+    const ale = [...recurrentesDuMois(params, m).map((r) => r.montant), ...(d.ale || [])];
+    const persoChr = Math.abs(d.persoChr || 0), persoAle = Math.abs(d.persoAle || 0);
+    const b = bilanDuo({ params, chrPartagees: depensesPartagees(operations, m, opts), ale, persoChr, persoAle, mois: m });
+    const f = qui === "chr" ? [b.netChr, b.provChr, b.partDepChr, persoChr] : qui === "ale" ? [b.netAle, b.provAle, b.partDepAle, persoAle]
+      : [b.netChr + b.netAle, b.provChr + b.provAle, b.partDepChr + b.partDepAle, persoChr + persoAle];
+    const [recettes, provision, partages, perso] = f;
+    const depenses = provision + partages + perso;
+    serie.push({ mois: m, recettes, provision, partages, perso, depenses, restant: recettes - depenses, reel: ops.length > 0 || ale.length > 0 || persoChr > 0 || persoAle > 0 });
+  }
+  return serie;
+}
+
+// Tendance linéaire (moindres carrés) d'une suite de valeurs : { pente (par mois), debut, fin }. Moins de 2 valeurs : pente nulle.
+export function tendance(valeurs) {
+  const n = valeurs.length;
+  if (n < 2) return { pente: 0, debut: valeurs[0] || 0, fin: valeurs[0] || 0 };
+  const mx = (n - 1) / 2, my = valeurs.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, sxx = 0;
+  valeurs.forEach((v, i) => { sxy += (i - mx) * (v - my); sxx += (i - mx) ** 2; });
+  const pente = sxy / sxx, debut = my - pente * mx;
+  return { pente, debut, fin: debut + pente * (n - 1) };
+}

@@ -31,6 +31,7 @@ const GUIDES = {
     "« Et si… ? » : simule la réduction d'une catégorie ou la suppression d'un abonnement.",
     "« Objectifs d'épargne » et « Rythme du mois » : date d'atteinte de tes objectifs et dépenses de confort du mois en cours.",
     "« Échéances prises en compte » liste ce que la projection lit dans ton échéancier, et ce qu'elle ignore.",
+    "« Bilan graphique » : recettes et dépenses sur 12 mois, reste de chaque mois avec sa tendance, composition des dépenses. Touche un graphique pour lire un mois ; « Voir en tableau » donne les mêmes chiffres.",
     "Chaque bloc se replie et se déplie en touchant son titre ; replié, il n'affiche que l'information importante."] },
   releve: { titre: "Relevé bancaire", but: "Rapprocher le relevé de ta banque avec tes opérations.", points: [
     "Choisis le compte puis le fichier du relevé (CSV, OFX, QIF ou Excel). Le relevé n'est pas conservé dans l'application.",

@@ -4,7 +4,8 @@ import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
 import { majResume } from "./repli.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte, capaciteEmprunt, SEUIL_ENDETTEMENT } from "./duo.js";
+import { lignesRecettesDepenses, barresReste, barresComposition, tableauSerie } from "./graphduo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, serieDuo, tendance, recurrentesDuMois, montantsDepuisTexte, capaciteEmprunt, SEUIL_ENDETTEMENT } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -293,9 +294,30 @@ export function monter(conteneur) {
         h("p", { class: "note" }, "Calculé avec le salaire en vigueur chaque mois et les lignes de provision actuelles.")),
       carteEmprunt(P, v, noms)
     ];
-    return [cartes[0], cartes[2], cartes[1]];   // l'emprunt suit directement l'endettement
+    cartes.push(carteGraphiques(P, choix, noms));
+    return [cartes[0], cartes[2], cartes[1], cartes[3]];   // l'emprunt suit directement l'endettement
   }
 
+
+  function carteGraphiques(P, choix, noms) {
+    const serie = serieDuo({ params: P, operations: etat.operations, reglages: etat.reglages, mois, n: 12, decale: moisDecale, qui: vueQui });
+    const tend = tendance(serie.map((p) => p.restant));
+    const moy = (cle) => Math.round(serie.reduce((a, p) => a + p[cle], 0) / serie.length);
+    const sens = Math.abs(tend.pente) < 100 ? "reste stable" : tend.pente > 0 ? `en hausse de ${euros(Math.round(tend.pente))} par mois` : `en baisse de ${euros(Math.round(-tend.pente))} par mois`;
+    const L = (a, val, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, val));
+    const reel = serie.filter((p) => p.reel).length;
+    return h("div", { class: "carte", "data-resume": `reste moyen ${euros(moy("restant"))} · ${sens}` }, h("h3", { class: "titre-carte" }, `Bilan graphique (12 mois) : ${noms[vueQui]}`), basculeQui(P, noms),
+      L("Recettes moyennes", euros(moy("recettes"))), L("Dépenses moyennes", euros(moy("depenses"))), L("Reste moyen par mois", euros(moy("restant")), moy("restant") < 0 ? "montant neg" : "montant pos"),
+      L("Tendance du reste", sens, tend.pente < -100 ? "montant neg" : ""),
+      h("p", { class: "titre-graphe" }, "Recettes et dépenses"), lignesRecettesDepenses(serie),
+      h("p", { class: "titre-graphe" }, "Reste de chaque mois et tendance"), barresReste(serie, tend),
+      h("p", { class: "titre-graphe" }, "Composition des dépenses"), barresComposition(serie),
+      tableauSerie(serie),
+      h("p", { class: "note" }, `Dépenses = provision du compte commun + part des dépenses partagées + dépenses personnelles. ${reel < serie.length ? `Seuls ${reel} mois sur ${serie.length} ont des dépenses saisies : les autres (barres atténuées) ne comptent que la provision.` : ""}`));
+  }
+  function basculeQui(P, noms) {
+    return h("div", { class: "modes-bilan" }, ...["chr", "ale", "tous"].map((q) => h("button", { type: "button", class: "sec" + (vueQui === q ? " actif-filtre" : ""), onclick: () => { vueQui = q; majTotaux(); } }, noms[q])));
+  }
 
   function carteEmprunt(P, v, noms) {
     const E = { taux: 3.5, ans: 20, assur: 0.3, ...(P.emprunt || {}) };

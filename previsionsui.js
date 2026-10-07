@@ -25,7 +25,7 @@ function graduations(min, max, n = 4) {
   const pas = [1, 2, 2.5, 5, 10].map((m) => m * p).find((x) => x >= brut) || 10 * p;
   const debut = Math.floor(min / pas) * pas;
   const t = [];
-  for (let v = debut; v <= max + pas * 0.01; v += pas) t.push(v);
+  for (let v = debut; ; v += pas) { t.push(v); if (v >= max - pas * 0.001) break; }
   return t;
 }
 

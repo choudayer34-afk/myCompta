@@ -510,3 +510,19 @@ details.bloc-repliable > summary .repli-titre { flex:1; min-width:0; font-size:1
 details.bloc-repliable > summary .repli-resume { flex:none; max-width:55%; text-align:right; font-weight:600; font-size:.85rem; color:var(--accent); }
 details.bloc-repliable[open] > summary .repli-resume { display:none; }
 details.bloc-repliable > .repli-corps { margin-top:10px; }
+
+/* v78 : bilan graphique du duo */
+.legende-duo { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.82rem; color:var(--texte); margin:6px 0 0; }
+.pastille-duo { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:baseline; }
+.pastille-duo.duo-rec { background:var(--s0); } .pastille-duo.duo-dep { background:var(--s1); }
+.pastille-duo.duo-pos { background:var(--s2); } .pastille-duo.duo-neg { background:var(--s7); }
+.pastille-duo.duo-prov { background:var(--s0); } .pastille-duo.duo-part { background:var(--s1); } .pastille-duo.duo-perso { background:var(--s6); }
+.pastille-duo.duo-tend { height:0; width:14px; border-radius:0; border-top:2px dashed var(--texte); }
+.proj .l-duo-rec { fill:none; stroke:var(--s0); stroke-width:2; stroke-linejoin:round; }
+.proj .l-duo-dep { fill:none; stroke:var(--s1); stroke-width:2; stroke-linejoin:round; }
+.proj .pt-duo-rec { fill:var(--s0); stroke:var(--surface); stroke-width:2; }
+.proj .pt-duo-dep { fill:var(--s1); stroke:var(--surface); stroke-width:2; }
+.proj .b-duo-pos { fill:var(--s2); } .proj .b-duo-neg { fill:var(--s7); }
+.proj .l-duo-tend { fill:none; stroke:var(--texte); stroke-width:1.5; stroke-dasharray:5 4; opacity:.8; }
+.proj .c-duo-prov { fill:var(--s0); } .proj .c-duo-part { fill:var(--s1); } .proj .c-duo-perso { fill:var(--s6); }
+.titre-graphe { margin:14px 0 0; font-size:.95rem; font-weight:600; }
