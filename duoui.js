@@ -3,7 +3,7 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte } from "./duo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, recurrentesDuMois, montantsDepuisTexte } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -228,8 +228,9 @@ export function monter(conteneur) {
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Qui doit quoi"), h("p", {}, h("strong", {}, b.depTotal ? doit : "Aucune dépense partagée ce mois-ci")),
         sansReglage ? h("div", {}, h("p", { class: "note" }, "Renseigne d'abord les salaires : sans eux, la répartition est de 50/50."), h("div", { class: "actions" }, h("button", { type: "button", onclick: () => formParametres() }, "Renseigner les salaires"))) : null,
         L(`Dépenses payées par ${P.nomChr}`, euros(b.depChr)), L(`Dépenses payées par ${P.nomAle}`, euros(b.depAle)), L("Total partagé", euros(b.depTotal)),
-        detail(`Détail des dépenses : ${P.nomChr}`, parCompte(operationsPartagees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}`, -o.montant, { libelle: "Retirer", fait: () => retirer(o.id) }]), "chr"),
+        detail(`Détail des dépenses : ${P.nomChr}`, parCompte(operationsPartagees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}${o.montant > 0 ? " (remboursement)" : ""}`, -o.montant, { libelle: "Retirer", fait: () => retirer(o.id) }]), "chr"),
         detail("Retirées du duo", parCompte(operationsRetirees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), o.nom, -o.montant, { libelle: "Remettre", fait: () => remettre(o.id) }]), "retirees"),
+        detail("Déduire un remboursement", parCompte(remboursementsPossibles(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}`, o.montant, { libelle: "Déduire", fait: () => ajouter(o.id) }]), "rembs"),
         detail("Ajouter une dépense manquante", parCompte(operationsManquantes(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), o.nom, -o.montant, { libelle: "Ajouter", fait: () => ajouter(o.id) }]), "manquantes"),
         detail(`Détail des dépenses : ${P.nomAle}`, [...recurrentes().map((r) => ["", `${r.nom || "Dépense"} (récurrente)`, r.montant]), ...montantsSaisis().map((m, i) => ["", `Dépense ${i + 1}`, m])], "ale"),
         L(`Part : ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part : ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),

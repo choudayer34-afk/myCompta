@@ -38,20 +38,25 @@ export function repartLigne(l, p) {
   return { chr: c, ale: m - c };
 }
 
-// Une opération du mois peut compter comme dépense du duo : marquée « à exporter » (sauf si retirée à la main),
-// ou ajoutée à la main. `opts` : { exclus: [ids retirés], inclus: [ids ajoutés] }.
-const depenseDuMois = (o, mois) => o.montant < 0 && !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois;
+// Une dépense du mois compte dans le duo si elle est marquée « à exporter » (sauf si retirée à la main) ou ajoutée à la main.
+// Un remboursement (opération en entrée) ne compte que s'il est ajouté à la main : il vient alors en déduction.
+// `opts` : { exclus: [ids retirés], inclus: [ids ajoutés à la main] }.
+const duMois = (o, mois) => !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois;
 const parDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
 export function operationsPartagees(operations, mois, { exclus = [], inclus = [] } = {}) {
-  return operations.filter((o) => depenseDuMois(o, mois) && !exclus.includes(o.id) && (o.aExporter || inclus.includes(o.id))).sort(parDate);
+  return operations.filter((o) => duMois(o, mois) && !exclus.includes(o.id) &&
+    (o.montant < 0 ? (o.aExporter || inclus.includes(o.id)) : (o.montant > 0 && inclus.includes(o.id)))).sort(parDate);
 }
 // Dépenses retirées à la main (marquées « à exporter » mais exclues du duo)
 export const operationsRetirees = (operations, mois, { exclus = [] } = {}) =>
-  operations.filter((o) => depenseDuMois(o, mois) && o.aExporter && exclus.includes(o.id)).sort(parDate);
+  operations.filter((o) => duMois(o, mois) && o.montant < 0 && o.aExporter && exclus.includes(o.id)).sort(parDate);
 // Dépenses du mois qui ne comptent pas encore (non marquées, non ajoutées)
 export const operationsManquantes = (operations, mois, { inclus = [] } = {}) =>
-  operations.filter((o) => depenseDuMois(o, mois) && !o.aExporter && !inclus.includes(o.id)).sort(parDate);
+  operations.filter((o) => duMois(o, mois) && o.montant < 0 && !o.aExporter && !inclus.includes(o.id)).sort(parDate);
+// Entrées du mois pouvant être déduites comme remboursement (pas encore déduites)
+export const remboursementsPossibles = (operations, mois, { inclus = [] } = {}) =>
+  operations.filter((o) => duMois(o, mois) && o.montant > 0 && !inclus.includes(o.id)).sort(parDate);
 
 export const depensesPartagees = (operations, mois, opts) => operationsPartagees(operations, mois, opts).reduce((s, o) => s - o.montant, 0);
 
