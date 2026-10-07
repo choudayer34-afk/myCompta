@@ -3,17 +3,36 @@ import { etat, pret, lot } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, brutEnVigueur, vueBilan, evolution } from "./duo.js";
+import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, brutEnVigueur, vueBilan, evolution, recurrentesDuMois } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
 
 const dateCourte = (iso) => { const [, m, j] = String(iso || "").split("-"); return j ? `${j}/${m}` : ""; };
 const nomCat = (id) => { const c = etat.categories.find((x) => x.id === id); return c ? c.nom : ""; };
-function detail(titre, lignes) {
-  return h("details", { class: "tableau-proj" }, h("summary", {}, `${titre} (${lignes.length})`),
-    lignes.length ? h("div", {}, ...lignes.map(([d, nom, m]) => h("div", { class: "ligne-synthese" }, h("span", {}, d ? `${d} · ${nom}` : nom), h("strong", {}, euros(m)))))
-      : h("p", { class: "note" }, "Aucune dépense."));
+const nomCompte = (id) => { const c = etat.comptes.find((x) => x.id === id); return c ? c.nom : "Compte inconnu"; };
+// Regroupe des opérations par compte : une ligne d'en-tête (compte, sous-total) puis ses opérations.
+function parCompte(ops, ligne) {
+  const groupes = new Map();
+  for (const o of ops) { if (!groupes.has(o.compteId)) groupes.set(o.compteId, []); groupes.get(o.compteId).push(o); }
+  const multi = groupes.size > 1;
+  return [...groupes].sort((a, b) => nomCompte(a[0]).localeCompare(nomCompte(b[0]), "fr"))
+    .flatMap(([id, l]) => [...(multi ? [{ entete: nomCompte(id), montant: l.reduce((s, o) => s - o.montant, 0) }] : []), ...l.map(ligne)]);
+}
+const ouverts = new Set();
+// Liste dépliable ; chaque ligne : [date, nom, montant, action?] avec action = { libelle, fait }
+function detail(titre, lignes, cle = titre) {
+  const nb = lignes.filter((x) => !x.entete).length;
+  const rendu = (x) => {
+    if (x.entete) return h("div", { class: "ligne-synthese" }, h("strong", {}, x.entete), h("strong", {}, euros(x.montant)));
+    const [dt, nom, m, act] = x;
+    return h("div", { class: "ligne-synthese" }, h("span", {}, dt ? `${dt} · ${nom}` : nom),
+      h("span", {}, h("strong", {}, euros(m)), act ? h("button", { type: "button", class: "sec bouton-choix", style: "margin-left:8px", onclick: act.fait }, act.libelle) : null));
+  };
+  const d = h("details", { class: "tableau-proj", open: ouverts.has(cle) ? true : null }, h("summary", {}, `${titre} (${nb})`),
+    lignes.length ? h("div", {}, ...lignes.map(rendu)) : h("p", { class: "note" }, "Aucune dépense."));
+  d.addEventListener("toggle", () => { if (d.open) ouverts.add(cle); else ouverts.delete(cle); });
+  return d;
 }
 
 function editeurHistorique(libelle, histoInitial) {
@@ -109,8 +128,43 @@ export function monter(conteneur) {
   const grille = h("div", {});
   conteneur.replaceChildren(h("h2", {}, "Duo"), h("button", { type: "button", class: "sec", onclick: () => formParametres() }, "⚙️ Paramètres (salaires, noms)"), nav, corps);
 
-  const montants = () => (saisie || []).map((t) => Math.abs(versCentimes(t) || 0)).filter((x) => x > 0);
+  const montantsSaisis = () => (saisie || []).map((t) => Math.abs(versCentimes(t) || 0)).filter((x) => x > 0);
+  const recurrentes = () => recurrentesDuMois(params(), mois);
+  const montants = () => [...recurrentes().map((r) => r.montant), ...montantsSaisis()];
   const persoDe = (cle) => Math.abs(docMois(mois)[cle] || 0);
+
+  const optsMois = () => { const d = docMois(mois); return { exclus: d.exclus || [], inclus: d.inclus || [] }; };
+  function retirer(id) { const o = optsMois(); enregistrerMois({ exclus: [...new Set([...o.exclus, id])], inclus: o.inclus.filter((x) => x !== id) }); }
+  function remettre(id) { const o = optsMois(); enregistrerMois({ exclus: o.exclus.filter((x) => x !== id) }); }
+  function ajouter(id) { const o = optsMois(); enregistrerMois({ inclus: [...new Set([...o.inclus, id])], exclus: o.exclus.filter((x) => x !== id) }); }
+
+  function ajouterRecurrente(nom, montant) {
+    const P = params();
+    const l = lot();
+    l.set("reglages", "duo", { recurrentes: [...(P.recurrentes || []), { id: String(Date.now()), nom, montant, depuis: mois, fin: null }] });
+    l.envoyer();
+  }
+  function retirerRecurrente(r) {
+    const P = params();
+    const fin = moisDecale(mois, -1);
+    const liste = (P.recurrentes || []).flatMap((x) => (x.id !== r.id ? [x] : (x.depuis && x.depuis > fin ? [] : [{ ...x, fin }])));
+    const l = lot(); l.set("reglages", "duo", { recurrentes: liste }); l.envoyer();
+  }
+  function carteRecurrentes(P) {
+    const iNom = h("input", { type: "text", placeholder: "Nom (ex. nounou)", autocomplete: "off", "aria-label": "Nom de la dépense récurrente" });
+    const iMt = h("input", { type: "text", inputmode: "decimal", placeholder: "Montant", "aria-label": "Montant" });
+    const liste = recurrentes();
+    return h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses récurrentes : ${P.nomAle}`),
+      h("p", { class: "note" }, "Reprises automatiquement chaque mois, à partir du mois affiché, jusqu'à ce que tu les retires."),
+      ...liste.map((r) => h("div", { class: "ligne-synthese" }, h("span", {}, `${r.nom || "Dépense"} · ${euros(r.montant)}`),
+        h("button", { type: "button", class: "sec bouton-choix", onclick: () => retirerRecurrente(r) }, "Retirer dès ce mois"))),
+      h("div", { class: "ligne-synthese" }, iNom, iMt),
+      h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => {
+        const m = Math.abs(versCentimes(iMt.value) || 0);
+        if (!m) return;
+        ajouterRecurrente(iNom.value.trim(), m); iNom.value = ""; iMt.value = "";
+      } }, "Ajouter dès ce mois")));
+  }
 
   function enregistrerMois(champs) { const l = lot(); l.set("reglages", "duo_" + mois, champs); l.envoyer(); }
 
@@ -125,7 +179,7 @@ export function monter(conteneur) {
         if (k === inputs.length - 1) { const n = ligne(""); inputs.push(n); grille.append(n); n.focus(); } else inputs[k + 1].focus();
       });
       i.addEventListener("input", () => { saisie = inputs.map((x) => x.value); majTotaux(); });
-      i.addEventListener("change", () => enregistrerMois({ ale: montants() }));
+      i.addEventListener("change", () => enregistrerMois({ ale: montantsSaisis() }));
       return i;
     };
     const valeurs = (docMois(mois).ale || []).map((c) => versSaisie(c));
@@ -141,7 +195,7 @@ export function monter(conteneur) {
 
   function bilanNoeuds() {
     const P = params();
-    const b = bilanDuo({ params: P, chrPartagees: depensesPartagees(etat.operations, mois), ale: montants(), persoChr: persoDe("persoChr"), persoAle: persoDe("persoAle"), mois });
+    const b = bilanDuo({ params: P, chrPartagees: depensesPartagees(etat.operations, mois, optsMois()), ale: montants(), persoChr: persoDe("persoChr"), persoAle: persoDe("persoAle"), mois });
     const pc = (x) => Math.round(x * 100) + " %";
     const L = (a, v, cls) => h("div", { class: "ligne-synthese" }, h("span", {}, a), h("strong", { class: cls || "" }, v));
     const doit = b.doit
@@ -152,8 +206,10 @@ export function monter(conteneur) {
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Qui doit quoi"), h("p", {}, h("strong", {}, b.depTotal ? doit : "Aucune dépense partagée ce mois-ci")),
         sansReglage ? h("div", {}, h("p", { class: "note" }, "Renseigne d'abord les salaires : sans eux, la répartition est de 50/50."), h("div", { class: "actions" }, h("button", { type: "button", onclick: () => formParametres() }, "Renseigner les salaires"))) : null,
         L(`Dépenses payées par ${P.nomChr}`, euros(b.depChr)), L(`Dépenses payées par ${P.nomAle}`, euros(b.depAle)), L("Total partagé", euros(b.depTotal)),
-        detail(`Détail des dépenses : ${P.nomChr}`, operationsPartagees(etat.operations, mois).map((o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}`, -o.montant])),
-        detail(`Détail des dépenses : ${P.nomAle}`, montants().map((m, i) => ["", `Dépense ${i + 1}`, m])),
+        detail(`Détail des dépenses : ${P.nomChr}`, parCompte(operationsPartagees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), `${o.nom}${nomCat(o.categorieId) ? " · " + nomCat(o.categorieId) : ""}`, -o.montant, { libelle: "Retirer", fait: () => retirer(o.id) }]), "chr"),
+        detail("Retirées du duo", parCompte(operationsRetirees(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), o.nom, -o.montant, { libelle: "Remettre", fait: () => remettre(o.id) }]), "retirees"),
+        detail("Ajouter une dépense manquante", parCompte(operationsManquantes(etat.operations, mois, optsMois()), (o) => [dateCourte(o.date), o.nom, -o.montant, { libelle: "Ajouter", fait: () => ajouter(o.id) }]), "manquantes"),
+        detail(`Détail des dépenses : ${P.nomAle}`, [...recurrentes().map((r) => ["", `${r.nom || "Dépense"} (récurrente)`, r.montant]), ...montantsSaisis().map((m, i) => ["", `Dépense ${i + 1}`, m])], "ale"),
         L(`Part : ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part : ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, "Provision du compte commun"),
         b.lignes.length ? h("div", {}, ...b.lignes.map((l) => h("div", { class: "ligne-synthese" }, h("span", {}, `${l.nom || "Sans nom"}${l.periode === "annuel" ? " (annuel ÷ 12)" : ""} · ${euros(l.mensuel)}`), h("small", {}, `${euros(l.chr)} / ${euros(l.ale)}`))))
@@ -213,14 +269,15 @@ export function monter(conteneur) {
     const P = params();
     // La grille de saisie n'est redessinée qu'au changement de mois : elle garde le focus pendant la frappe.
     if (moisSaisie !== mois) { moisSaisie = mois; dessinerGrille(P.nomAle); }
-    const nbOps = etat.operations.filter((o) => o.aExporter && o.montant < 0 && !o.virementId && o.statut !== "annule" && String(o.date || "").slice(0, 7) === mois).length;
+    const nbOps = operationsPartagees(etat.operations, mois, optsMois()).length;
     corps.replaceChildren(
       h("div", { class: "carte" }, h("h3", { class: "titre-carte" }, `Dépenses saisies : ${P.nomAle}`),
         h("p", { class: "note" }, "Un montant par ligne. Entrée passe à la ligne suivante."), grille),
-      h("p", { class: "note" }, `${P.nomChr} : ${nbOps} opération(s) marquée(s) « à exporter » ce mois-ci.`),
+      carteRecurrentes(P),
+      h("p", { class: "note" }, `${P.nomChr} : ${nbOps} opération(s) comptée(s) ce mois-ci (marquées « à exporter »).`),
       zoneTotaux);
     majTotaux();
   }
   maj();
-  return { maj: () => { if (document.activeElement && grille.contains(document.activeElement)) majTotaux(); else maj(); } };
+  return { maj: () => { if (document.activeElement && corps.contains(document.activeElement) && document.activeElement.tagName === "INPUT") majTotaux(); else maj(); } };
 }
