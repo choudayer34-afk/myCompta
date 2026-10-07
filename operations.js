@@ -10,6 +10,7 @@ import { formMasse } from "./masse.js";
 import { formRapide } from "./rapide.js";
 import { formOperation } from "./formoperation.js";
 import { formCloture } from "./clotureui.js";
+import { PERIODES, bornesFiltre } from "./periode.js";
 
 export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
@@ -21,6 +22,7 @@ export function monter(conteneur, { id }) {
   conteneur.classList.remove("mode-selection");
   let recherche = "";
   let limite = PAGE;
+  let fPeriode = "", fDu = "", fAu = "";   // filtre de période (préréglage ou dates choisies)
   let fExport = "", fCat = "";   // filtres : export (« oui » / « non »), catégorie (« avec » / « sans » / « aclasser »)
   let nonPointees = false;   // filtre « à pointer » (statut en cours)
   let affichees = [];        // opérations actuellement listées (après filtres)
@@ -51,7 +53,15 @@ export function monter(conteneur, { id }) {
   const sCat = selecteur([["", "Catégorie : toutes"], ["avec", "Avec catégorie"], ["sans", "Sans catégorie"], ["aclasser", "🤔 À classer"]], "", { "aria-label": "Filtre catégorie" });
   sExport.addEventListener("change", () => { fExport = sExport.value; limite = PAGE; majListe(); });
   sCat.addEventListener("change", () => { fCat = sCat.value; limite = PAGE; majListe(); });
-  const filtres = h("div", { class: "barre filtres" }, sExport, sCat);
+  const sPeriode = selecteur(PERIODES, "", { "aria-label": "Filtre période" });
+  const iDu = h("input", { type: "date", "aria-label": "Du" });
+  const iAu = h("input", { type: "date", "aria-label": "Au" });
+  const datesPerso = h("div", { class: "barre filtres cache" }, h("label", {}, "Du"), iDu, h("label", {}, "au"), iAu);
+  const resumePeriode = h("p", { class: "note cache" });
+  sPeriode.addEventListener("change", () => { fPeriode = sPeriode.value; limite = PAGE; majListe(); });
+  iDu.addEventListener("change", () => { fDu = iDu.value; limite = PAGE; majListe(); });
+  iAu.addEventListener("change", () => { fAu = iAu.value; limite = PAGE; majListe(); });
+  const filtres = h("div", { class: "barre filtres" }, sPeriode, sExport, sCat);
   const barre = h("div", { class: "barre barre-recherche" }, iRecherche, bFiltre, bTout);
   const liste = h("div", { class: "liste" });
   const bSelect = h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Sélectionner");
@@ -76,7 +86,7 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, liste, ajout, barreSel);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, datesPerso, resumePeriode, liste, ajout, barreSel);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
@@ -120,6 +130,8 @@ export function monter(conteneur, { id }) {
     const cats = new Map(etat.categories.map((x) => [x.id, x]));
     const nomsCat = new Map(etat.categories.map((x) => [x.id, x.nom]));
     const q = sansAccent(recherche).trim();
+    const bornes = bornesFiltre(fPeriode, aujourdhui(), fDu, fAu);
+    if (bornes) lignes = lignes.filter((o) => o.date >= bornes[0] && o.date <= bornes[1]);
     if (fExport) lignes = lignes.filter((o) => (fExport === "oui") === !!o.aExporter);
     const estVirement = (o) => o.virementId;
     if (fCat === "avec") lignes = lignes.filter((o) => o.categorieId);
@@ -144,6 +156,14 @@ export function monter(conteneur, { id }) {
     barreSel.classList.toggle("cache", !mode);
     ajout.classList.toggle("cache", mode);
     nbSel.textContent = `${choisies.size} sélectionnée(s) / ${lignes.length} affichée(s)`;
+    datesPerso.classList.toggle("cache", fPeriode !== "perso");
+    sPeriode.classList.toggle("filtre-actif", !!bornes);
+    if (bornes) {
+      const entrees = lignes.filter((o) => o.statut !== "annule" && o.montant > 0).reduce((t, o) => t + o.montant, 0);
+      const sorties = lignes.filter((o) => o.statut !== "annule" && o.montant < 0).reduce((t, o) => t - o.montant, 0);
+      resumePeriode.textContent = `${lignes.length} opération(s) · entrées ${euros(entrees)} · sorties ${euros(sorties)} · net ${euros(entrees - sorties)}`;
+    }
+    resumePeriode.classList.toggle("cache", !bornes);
     sExport.classList.toggle("filtre-actif", !!fExport); sCat.classList.toggle("filtre-actif", !!fCat);
     info.textContent = message;
     bTout.classList.toggle("cache", !(nonPointees && lignes.some((x) => x.statut === "encours")));

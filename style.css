@@ -489,3 +489,4 @@ label.ligne-eco { cursor:pointer; }
 .bloc-objectif small.avert-proj { color:var(--alerte); }
 .eco-gain { color:var(--accent); }
 .champ-icone { width:56px; flex:none; text-align:center; }
+.filtres input[type=date] { flex:1; min-width:0; margin:0; padding:6px 8px; font-size:.85rem; } .filtres label { flex:none; font-size:.85rem; color:var(--discret); }
