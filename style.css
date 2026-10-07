@@ -490,3 +490,14 @@ label.ligne-eco { cursor:pointer; }
 .eco-gain { color:var(--accent); }
 .champ-icone { width:56px; flex:none; text-align:center; }
 .filtres input[type=date] { flex:1; min-width:0; margin:0; padding:6px 8px; font-size:.85rem; } .filtres label { flex:none; font-size:.85rem; color:var(--discret); }
+/* Provision du compte commun : tableau compact */
+.defile-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }
+.table-provision { width:100%; border-collapse:collapse; table-layout:fixed; min-width:300px; }
+.table-provision th { font-size:.7rem; text-align:left; color:var(--discret); padding:2px 2px; font-weight:600; overflow:hidden; }
+.table-provision td { padding:2px; vertical-align:middle; }
+.table-provision td.centre { text-align:center; }
+.table-provision td.centre input { width:20px; height:20px; }
+.table-provision input[type=text] { width:100%; min-width:0; margin:0; padding:7px 2px; font-size:16px; letter-spacing:-.3px; }
+.table-provision select { width:100%; min-width:0; margin:0; padding:7px 2px; font-size:13px; -webkit-appearance:none; appearance:none; background-image:none; text-align:center; }
+.table-provision th:nth-child(1) { width:11%; } .table-provision th:nth-child(2) { width:19%; } .table-provision th:nth-child(3) { width:26%; } .table-provision th:nth-child(4) { width:15%; } .table-provision th:nth-child(5) { width:23%; } .table-provision th:nth-child(6) { width:6%; }
+.table-provision button { padding:4px 2px; width:100%; min-width:0; }

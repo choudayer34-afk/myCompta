@@ -83,31 +83,48 @@ function formParametres() {
 function formLignes() {
   const P = params();
   const lignes = (P.lignes || []).map((x) => ({ ...x }));
-  const zone = h("div", {});
-  const modes = [["prorata", "Prorata des salaires"], ["5050", "50/50"], ["chr", "100 % " + P.nomChr], ["ale", "100 % " + P.nomAle]];
+  if (!lignes.length) lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata", credit: false });
+  const modes = [["prorata", "Prorata"], ["5050", "50/50"], ["chr", "100 % " + P.nomChr], ["ale", "100 % " + P.nomAle]];
+  const corpsTable = h("tbody", {});
+  const lignesDom = [];   // références des champs, pour passer à la ligne suivante avec Entrée
   function dessiner() {
-    zone.replaceChildren(...lignes.map((x, i) => {
-      const nom = h("input", { type: "text", value: x.nom || "", placeholder: "ex. maison-assurance", autocomplete: "off" });
-      nom.addEventListener("input", () => { x.nom = nom.value; });
-      const mt = h("input", { type: "text", inputmode: "decimal", value: x.montant ? versSaisie(x.montant) : "", placeholder: "Montant" });
-      mt.addEventListener("input", () => { x.montant = Math.abs(versCentimes(mt.value) || 0); });
-      const per = selecteur([["mensuel", "par mois"], ["annuel", "par an (lissé sur 12 mois)"]], x.periode || "mensuel");
-      per.addEventListener("change", () => { x.periode = per.value; });
-      const mode = selecteur(modes, x.mode || "prorata");
-      mode.addEventListener("change", () => { x.mode = mode.value; });
-      const cr = h("input", { type: "checkbox", checked: x.credit ? true : null });
+    lignesDom.length = 0;
+    corpsTable.replaceChildren(...lignes.map((x, i) => {
+      const cr = h("input", { type: "checkbox", checked: x.credit ? true : null, "aria-label": "Crédit" });
       cr.addEventListener("change", () => { x.credit = cr.checked; });
-      return h("div", { class: "carte" }, nom, mt, per, mode, h("label", { class: "case" }, cr, "Crédit (compte dans le taux d'endettement)"),
-        h("button", { type: "button", class: "danger", onclick: () => { lignes.splice(i, 1); dessiner(); } }, "Retirer cette ligne"));
+      const nom = h("input", { type: "text", value: x.nom || "", placeholder: "Nom", autocomplete: "off", "aria-label": "Nom" });
+      nom.addEventListener("input", () => { x.nom = nom.value; });
+      const mt = h("input", { type: "text", inputmode: "decimal", value: x.montant ? versSaisie(x.montant) : "", placeholder: "Prix", "aria-label": "Prix" });
+      mt.addEventListener("input", () => { x.montant = Math.abs(versCentimes(mt.value) || 0); });
+      mt.addEventListener("change", () => { if (x.montant) mt.value = versSaisie(x.montant); });
+      const per = selecteur([["mensuel", "/mois"], ["annuel", "/an"]], x.periode || "mensuel", { "aria-label": "Périodicité" });
+      per.addEventListener("change", () => { x.periode = per.value; });
+      const mode = selecteur(modes, x.mode || "prorata", { "aria-label": "Répartition" });
+      mode.addEventListener("change", () => { x.mode = mode.value; });
+      lignesDom.push({ nom, mt });
+      for (const [col, champSaisie] of [["nom", nom], ["mt", mt]]) {
+        champSaisie.addEventListener("keydown", (ev) => {
+          if (ev.key !== "Enter") return;
+          ev.preventDefault();
+          if (i === lignes.length - 1) { lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata", credit: false }); dessiner(); }
+          lignesDom[i + 1][col].focus();
+        });
+      }
+      return h("tr", {}, h("td", { class: "centre" }, cr), h("td", {}, nom), h("td", {}, mt), h("td", {}, per), h("td", {}, mode),
+        h("td", {}, h("button", { type: "button", class: "sec", "aria-label": "Retirer cette ligne", onclick: () => { lignes.splice(i, 1); dessiner(); } }, "✕")));
     }));
   }
   dessiner();
+  const table = h("table", { class: "table-provision" },
+    h("thead", {}, h("tr", {}, h("th", {}, "Créd."), h("th", {}, "Nom"), h("th", {}, "Prix"), h("th", {}, "Par"), h("th", {}, "Répartition"), h("th", {}, ""))),
+    corpsTable);
   const corps = h("div", {},
-    h("p", { class: "note" }, "Dépenses prélevées sur le compte commun (ou provisionnées). Une dépense annuelle est lissée : montant ÷ 12 chaque mois."),
-    zone,
-    h("button", { type: "button", class: "sec", onclick: () => { lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata" }); dessiner(); } }, "+ Ajouter une ligne"),
+    h("p", { class: "note" }, "Dépenses prélevées sur le compte commun ou provisionnées. Une dépense par an est lissée : prix ÷ 12 chaque mois. « Crédit » alimente le taux d'endettement. Entrée passe à la ligne suivante."),
+    h("div", { class: "defile-x" }, table),
+    h("button", { type: "button", class: "sec", onclick: () => { lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata", credit: false }); dessiner(); lignesDom[lignes.length - 1].nom.focus(); } }, "+ Ajouter une ligne"),
     h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"), h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")));
   const { dialogue, formulaire } = modale("Provision du compte commun", corps);
+  dialogue.style.width = "calc(100vw - 8px)"; dialogue.style.padding = "10px";   // place maximale pour le tableau
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
