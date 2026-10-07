@@ -1,4 +1,5 @@
 import { etat, pret, nouvelId, lot, categoriesTriees } from "./store.js";
+import { USAGES, usageSuggere } from "./economies.js";
 import { formReorganisation } from "./reorganisationui.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 
@@ -12,6 +13,8 @@ function formCategorie(cat = null) {
   const aDesEnfants = cat && etat.categories.some((c) => c.parentId === cat.id);
   const iNom = h("input", { type: "text", required: true, value: cat?.nom || "", autocomplete: "off" });
   const iParent = selecteur([["", "— aucune (catégorie principale) —"], ...parents], cat?.parentId || "", { disabled: aDesEnfants || null });
+  const iUsage = selecteur(USAGES, cat?.usage || "", { disabled: (cat?.parentId ? true : null) });
+  iParent.addEventListener("change", () => { iUsage.disabled = !!iParent.value; });
   const iCouleur = h("input", { type: "color", value: cat?.couleur || couleurAuHasard() });
   const iEtat = selecteur([["actif", "Active"], ["archive", "Archivée (masquée à la saisie)"]], cat?.archive ? "archive" : "actif");
   const iMemo = h("input", { type: "text", value: cat?.memo || "", placeholder: "ex. téléphone, casque, jeux", autocomplete: "off" });
@@ -33,14 +36,14 @@ function formCategorie(cat = null) {
   );
 
   const { dialogue, formulaire } = modale(cat ? "Modifier la catégorie" : "Nouvelle catégorie", [
-    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Icône (facultative)", iIcone), choixIcones, champ("Aide-mémoire (facultatif)", iMemo), h("p", { class: "note" }, "Mots qui aident à choisir cette catégorie : ils servent à la recherche et aux suggestions à la saisie."), champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
+    champ("Nom", iNom), champ("Catégorie parente", iParent), champ("Classement (économies)", iUsage), h("p", { class: "note" }, "Essentielle : difficile à éviter. Confort : tu peux agir dessus. Une sous-catégorie suit sa catégorie principale."), champ("Icône (facultative)", iIcone), choixIcones, champ("Aide-mémoire (facultatif)", iMemo), h("p", { class: "note" }, "Mots qui aident à choisir cette catégorie : ils servent à la recherche et aux suggestions à la saisie."), champ("Couleur", iCouleur), champ("État", iEtat), erreur, actions
   ]);
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
     const archive = iEtat.value === "archive";
     l.set("categories", cat?.id || nouvelId("categories"), {
-      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value, icone: iIcone.value.trim(), memo: iMemo.value.trim(), archive
+      nom: iNom.value.trim(), parentId: iParent.value || null, couleur: iCouleur.value, icone: iIcone.value.trim(), memo: iMemo.value.trim(), usage: iParent.value ? null : (iUsage.value || null), archive
     });
     // Archiver une catégorie principale archive aussi ses sous-catégories
     if (cat && archive && !cat.archive) for (const e of etat.categories.filter((c) => c.parentId === cat.id && !c.archive)) l.set("categories", e.id, { archive: true });

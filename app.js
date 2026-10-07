@@ -13,6 +13,7 @@ import * as vueExport from "./export.js";
 import * as vueBudgets from "./budgets.js";
 import * as vuePlus from "./plus.js";
 import * as vueEconomies from "./economiesui.js";
+import * as vueDuo from "./duoui.js";
 import * as vueReleve from "./releveui.js";
 import * as vueRecherche from "./rechercheui.js";
 import * as vuePrevisions from "./previsionsui.js";
@@ -153,6 +154,9 @@ function naviguer() {
     onglet = "releve";
     vue = vueReleve.monter(principal);
     vue.maj();
+  } else if (hash === "#/duo") {
+    onglet = "plus";
+    vue = vueDuo.monter(principal);
   } else if (hash === "#/economies") {
     onglet = "plus";
     vue = vueEconomies.monter(principal);
