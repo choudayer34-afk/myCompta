@@ -3,7 +3,8 @@ import { etat, pret, lot } from "./store.js";
 import { euros, dateFr, aujourdhui } from "./format.js";
 import { h, selecteur } from "./ui.js";
 import { comptesSuivis } from "./budgets.js";
-import { projection, moyennesCategories, objectifsEpargne, rythmeDuMois } from "./previsions.js";
+import { soldeCompte, partCompte } from "./calc.js";
+import { projection, moyennesCategories, objectifsEpargne, rythmeDuMois, historiqueSolde, penteSolde } from "./previsions.js";
 import { detecterAbonnements } from "./economies.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -29,44 +30,53 @@ function graduations(min, max, n = 4) {
   return t;
 }
 
-function graphique(points, avecScenario, surSurvol) {
+// `passe` : soldes de fin de mois précédents [{ mois, solde }] ; la courbe du passé rejoint le point d'aujourd'hui.
+function graphique(points, avecScenario, surSurvol, passe = [], avecTendance = false) {
   const L = 340, H = 210, gauche = 38, droite = 24, haut = 12, bas = 176;
-  const series = ["prudent", "central", "favorable"].concat(avecScenario ? ["avec"] : []);
-  const valeurs = points.flatMap((p) => series.map((c) => p[c]));
+  const m = passe.length;
+  const tous = [...passe.map((q) => ({ mois: q.mois, hist: q.solde })), ...points.map((q, i) => (i === 0 ? { ...q, hist: q.central } : q))];
+  const series = ["prudent", "central", "favorable"].concat(avecScenario ? ["avec"] : []).concat(avecTendance ? ["tendance"] : []);
+  const valeurs = tous.flatMap((p) => [p.hist, ...series.map((c) => p[c])]).filter((v) => v != null);
   const ticks = graduations(Math.min(0, ...valeurs), Math.max(0, ...valeurs));
   const vmin = ticks[0], vmax = ticks[ticks.length - 1] || 1;
-  const x = (i) => gauche + (i / (points.length - 1)) * (L - gauche - droite);
+  const x = (i) => gauche + (i / (tous.length - 1)) * (L - gauche - droite);
   const y = (v) => bas - ((v - vmin) / (vmax - vmin || 1)) * (bas - haut);
-  const ligne = (cle) => points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[cle]).toFixed(1)}`).join(" ");
-  const bande = `${points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.favorable).toFixed(1)}`).join(" ")} ${[...points].reverse().map((p, j) => `L${x(points.length - 1 - j).toFixed(1)},${y(p.prudent).toFixed(1)}`).join(" ")} Z`;
+  const ligne = (cle) => tous.map((p, i) => (p[cle] == null ? null : `${x(i).toFixed(1)},${y(p[cle]).toFixed(1)}`)).filter(Boolean).map((c, i) => `${i ? "L" : "M"}${c}`).join(" ");
+  const bande = `${points.map((p, i) => `${i ? "L" : "M"}${x(m + i).toFixed(1)},${y(p.favorable).toFixed(1)}`).join(" ")} ${[...points].reverse().map((p, j) => `L${x(m + points.length - 1 - j).toFixed(1)},${y(p.prudent).toFixed(1)}`).join(" ")} Z`;
   const noeuds = [];
   for (const t of ticks) {
     noeuds.push(s("line", { x1: gauche, x2: L - droite, y1: y(t), y2: y(t), class: t === 0 ? "zero" : "grille" }));
     const lab = s("text", { x: gauche - 5, y: y(t) + 3, "text-anchor": "end", class: "lib-proj" }); lab.textContent = k(t); noeuds.push(lab);
   }
-  noeuds.push(s("path", { d: bande, class: "bande-proj" }), s("path", { d: ligne("prudent"), class: "l-prudent" }), s("path", { d: ligne("favorable"), class: "l-favorable" }), s("path", { d: ligne("central"), class: "l-central" }));
+  if (m) noeuds.push(s("line", { x1: x(m), x2: x(m), y1: haut, y2: bas, class: "sep-auj" }));
+  noeuds.push(s("path", { d: bande, class: "bande-proj" }), s("path", { d: ligne("prudent"), class: "l-prudent" }), s("path", { d: ligne("favorable"), class: "l-favorable" }));
+  if (m) noeuds.push(s("path", { d: ligne("hist"), class: "l-passe" }));
+  noeuds.push(s("path", { d: ligne("central"), class: "l-central" }));
+  if (avecTendance) noeuds.push(s("path", { d: ligne("tendance"), class: "l-tend" }));
   if (avecScenario) noeuds.push(s("path", { d: ligne("avec"), class: "l-avec" }));
-  const pasLib = Math.ceil(points.length / 7);
-  points.forEach((p, i) => { if (i % pasLib === 0 || i === points.length - 1) { const t = s("text", { x: x(i), y: bas + 15, "text-anchor": "middle", class: "lib-proj" }); t.textContent = i === 0 ? "auj." : moisCourt(p.mois); noeuds.push(t); } });
+  const pasLib = Math.ceil(tous.length / 7);
+  tous.forEach((p, i) => { if (i === m || ((i % pasLib === 0 || i === tous.length - 1) && !(tous.length > 10 && Math.abs(i - m) < 2))) { const t = s("text", { x: x(i), y: bas + 15, "text-anchor": "middle", class: "lib-proj" }); t.textContent = i === m ? "auj." : moisCourt(p.mois); noeuds.push(t); } });
   const repere = s("g", { class: "repere" });
   noeuds.push(repere);
-  const svg = s("svg", { viewBox: `0 0 ${L} ${H}`, class: "proj", role: "img", "aria-label": "Projection du solde" }, ...noeuds);
+  const svg = s("svg", { viewBox: `0 0 ${L} ${H}`, class: "proj", role: "img", "aria-label": "Solde passé et projeté" }, ...noeuds);
   const zone = s("rect", { x: gauche, y: 0, width: L - gauche - droite, height: H, fill: "transparent", style: "touch-action:pan-y" });
   svg.append(zone);
   const montrer = (i) => {
+    const q = tous[i];
+    const cles = i < m ? ["hist"] : series.concat(i === m ? [] : []);
     repere.replaceChildren(s("line", { x1: x(i), x2: x(i), y1: haut, y2: bas, class: "croix" }),
-      ...series.map((c) => s("circle", { cx: x(i), cy: y(points[i][c]), r: 4, class: "pt-" + c })));
-    surSurvol(i);
+      ...cles.filter((c) => q[c] != null).map((c) => s("circle", { cx: x(i), cy: y(q[c]), r: 4, class: "pt-" + (c === "hist" ? "passe" : c) })));
+    surSurvol(i - m);   // négatif : mois passé ; 0 : aujourd'hui ; positif : mois à venir
   };
-  const depuis = (e) => { const r = svg.getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * L; return Math.max(0, Math.min(points.length - 1, Math.round(((px - gauche) / (L - gauche - droite)) * (points.length - 1)))); };
+  const depuis = (e) => { const r = svg.getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * L; return Math.max(0, Math.min(tous.length - 1, Math.round(((px - gauche) / (L - gauche - droite)) * (tous.length - 1)))); };
   zone.addEventListener("pointermove", (e) => montrer(depuis(e)));
   zone.addEventListener("pointerdown", (e) => montrer(depuis(e)));
-  montrer(points.length - 1);
+  montrer(tous.length - 1);
   return svg;
 }
 
 export function monter(conteneur) {
-  let horizon = 6, catId = "", pct = 20, aboNom = "";
+  let horizon = 6, passe = 6, catId = "", pct = 20, aboNom = "";
   const corps = h("div", {});
   conteneur.replaceChildren(h("h2", {}, "Projection"), corps);
   const nomCat = (id) => { const c = etat.categories.find((x) => x.id === id); return c ? `${c.icone || ""} ${c.nom}`.trim() : "Sans catégorie"; };
@@ -94,9 +104,14 @@ export function monter(conteneur) {
     const ab = abos.find((a) => a.nom === aboNom);
     const economie = (mc ? Math.round(mc.moyenne * pct / 100) : 0) + (ab ? ab.mensuel : 0);
 
-    const p = projection({ ...base, aujourdhui: auj, horizon, economieMensuelle: economie });
+    const histo = historiqueSolde({ ...base, aujourdhui: auj, nb: passe });
+    const soldeAuj = [...new Map(etat.comptes.filter((c) => ids.includes(c.id)).map((c) => [c.id, c])).values()].reduce((sm, c) => sm + Math.round(soldeCompte(c, etat.operations) * partCompte(c) / 100), 0);
+    const pente = penteSolde(histo, soldeAuj);
+    const p = projection({ ...base, aujourdhui: auj, horizon, economieMensuelle: economie, pente });
     const bouton = (n) => h("button", { type: "button", class: "sec" + (horizon === n ? " actif-filtre" : ""), onclick: () => { horizon = n; maj(); } }, `${n} mois`);
     noeuds.push(h("div", { class: "modes-bilan" }, bouton(3), bouton(6), bouton(12)));
+    const boutonPasse = (n) => h("button", { type: "button", class: "sec" + (passe === n ? " actif-filtre" : ""), onclick: () => { passe = n; maj(); } }, `${n} mois`);
+    noeuds.push(h("div", { class: "rapide" }, h("span", { class: "rapide-titre" }, "Historique affiché :"), boutonPasse(3), boutonPasse(6), boutonPasse(12)));
 
     if (p.insuffisant) {
       noeuds.push(h("div", { class: "carte" }, h("p", {}, "Rien à projeter : ni échéance dans l'échéancier, ni opération sur les mois précédents pour les comptes pris en compte.")));
@@ -119,23 +134,33 @@ export function monter(conteneur) {
       const dernier = p.points[p.points.length - 1];
       const tip = h("p", { class: "tip-proj", "aria-live": "polite" });
       const svg = graphique(p.points, economie > 0, (i) => {
+        if (i < 0) {
+          const q = histo[histo.length + i];
+          tip.replaceChildren(h("strong", {}, moisLong(q.mois)), ` : ${euros(q.solde)} en fin de mois (${q.variation >= 0 ? "+" : ""}${euros(q.variation)} sur le mois${q.virements ? `, dont ${q.virements >= 0 ? "+" : ""}${euros(q.virements)} de virements` : ""})`);
+          return;
+        }
         const q = p.points[i];
-        tip.replaceChildren(h("strong", {}, i === 0 ? "Aujourd'hui" : moisLong(q.mois)), ` : ${euros(q.central)} (prudent ${euros(q.prudent)}, favorable ${euros(q.favorable)})` + (economie > 0 ? ` · avec tes changements ${euros(q.avec)}` : ""));
-      });
+        tip.replaceChildren(h("strong", {}, i === 0 ? "Aujourd'hui" : moisLong(q.mois)), ` : ${euros(q.central)} (prudent ${euros(q.prudent)}, favorable ${euros(q.favorable)})` + (pente != null && i > 0 ? ` · tendance ${euros(q.tendance)}` : "") + (economie > 0 ? ` · avec tes changements ${euros(q.avec)}` : ""));
+      }, histo, pente != null);
       const legende = h("div", { class: "legende-usage" },
+        histo.length ? h("span", {}, h("i", { class: "sw-passe" }), "Passé") : null,
         h("span", {}, h("i", { class: "sw-central" }), "Central"),
         h("span", {}, h("i", { class: "sw-prudent" }), "Prudent"),
         h("span", {}, h("i", { class: "sw-favorable" }), "Favorable"),
+        pente != null ? h("span", {}, h("i", { class: "sw-tend" }), "Tendance") : null,
         economie > 0 ? h("span", {}, h("i", { class: "sw-avec" }), "Avec tes changements") : null);
       const tableau = h("details", { class: "tableau-proj" }, h("summary", {}, "Voir le tableau"),
-        h("table", {}, h("thead", {}, h("tr", {}, ...["Fin de mois", "Central", "Prudent", "Favorable"].concat(economie > 0 ? ["Avec changements"] : []).map((t) => h("th", {}, t)))),
-          h("tbody", {}, p.points.slice(1).map((q) => h("tr", {}, h("td", {}, moisLong(q.mois)), h("td", {}, euros(q.central)), h("td", {}, euros(q.prudent)), h("td", {}, euros(q.favorable)), economie > 0 ? h("td", {}, euros(q.avec)) : null)))));
+        h("table", {}, h("thead", {}, h("tr", {}, ...["Fin de mois", "Central", "Prudent", "Favorable"].concat(pente != null ? ["Tendance"] : []).concat(economie > 0 ? ["Avec changements"] : []).map((t) => h("th", {}, t)))),
+          h("tbody", {}, ...histo.map((q) => h("tr", {}, h("td", {}, `${moisLong(q.mois)} (réel)`), h("td", { colSpan: 3 + (pente != null ? 1 : 0) + (economie > 0 ? 1 : 0) }, euros(q.solde)))),
+            ...p.points.slice(1).map((q) => h("tr", {}, h("td", {}, moisLong(q.mois)), h("td", {}, euros(q.central)), h("td", {}, euros(q.prudent)), h("td", {}, euros(q.favorable)), pente != null ? h("td", {}, euros(q.tendance)) : null, economie > 0 ? h("td", {}, euros(q.avec)) : null)))));
       noeuds.push(h("div", { class: "carte", "data-resume": `${euros(dernier.central)} dans ${horizon} mois` }, h("h3", { class: "titre-carte" }, "Solde projeté"),
         h("p", {}, `Solde en cours aujourd'hui : ${euros(p.solde)}. Dans ${horizon} mois (${moisLong(dernier.mois)}) : environ `, h("strong", {}, euros(dernier.central)), ` (prudent ${euros(dernier.prudent)}, favorable ${euros(dernier.favorable)}).`),
         p.premierNegatif ? h("p", { class: "avert-proj" }, `Dans le scénario prudent, le solde passe sous zéro en ${moisLong(p.premierNegatif.mois)}.`) : null,
         svg, legende, tip, tableau,
         p.ponctuels.length ? h("p", { class: "note" }, "Échéances non mensuelles prévues : " + p.ponctuels.map((x) => `${x.nom} ${euros(x.montant)} (${dateFr(x.date)})`).join(" · ") + ".") : null,
-        h("p", { class: "note" }, "Les échéances de l'échéancier sont lues à leurs dates. Pour le reste : central = flux moyen, prudent = mois le plus défavorable, favorable = mois le plus favorable. Une dépense exceptionnelle n'y est pas prévue.")));
+        histo.length ? h("p", { class: "note" }, `Passé : soldes réels de fin de mois pour les comptes sélectionnés, toutes opérations comprises, virements inclus (un virement vers un compte non sélectionné fait baisser le solde, un virement entre deux comptes sélectionnés s'annule).`) : null,
+        pente != null ? h("p", { class: "note" }, `Tendance : le solde évolue de ${pente >= 0 ? "+" : ""}${euros(pente)} par mois en moyenne sur la période affichée ; la ligne pointillée prolonge ce rythme.`) : null,
+        h("p", { class: "note" }, "Les échéances de l\'échéancier sont lues à leurs dates. Pour le reste : central = flux moyen, prudent = mois le plus défavorable, favorable = mois le plus favorable. Une dépense exceptionnelle n'y est pas prévue.")));
 
       // Simulation
       const sCat = selecteur([["", "Aucune"], ...moyCat.map((m) => [m.categorieId, `${nomCat(m.categorieId)} (moy. ${euros(m.moyenne)}/mois)`])], catId, { "aria-label": "Catégorie à réduire" });

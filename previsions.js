@@ -41,10 +41,48 @@ export function fluxMensuels({ operations, comptes, comptesIds = [], planifiees 
 
 const moy = (a) => (a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length) : 0);
 
+// Solde de fin de chacun des `nb` mois précédents (opérations de toute nature, virements compris, hors annulées), pour les comptes suivis.
+// Les mois antérieurs à la première opération ne sont pas listés. variation = évolution du mois ; virements = part des virements dans cette variation.
+export function historiqueSolde({ operations, comptes, comptesIds = [], aujourdhui, nb = 6 }) {
+  const mois = aujourdhui.slice(0, 7);
+  const suivis = suivisDe(comptes, comptesIds);
+  const valides = operations.filter((o) => suivis.has(o.compteId) && o.statut !== "annule");
+  if (!valides.length) return [];
+  const premier = valides.reduce((m, o) => (o.date < m ? o.date : m), valides[0].date).slice(0, 7);
+  const poids = (o) => partCompte(suivis.get(o.compteId)) / 100;
+  const initial = [...suivis.values()].reduce((s, c) => s + Math.round((c.soldeInitial || 0) * partCompte(c) / 100), 0);
+  const res = [];
+  for (let n = nb; n >= 1; n--) {
+    const ym = moisDecale(mois, -n);
+    if (ym < premier) continue;
+    const [debut, fin] = bornesMois(ym);
+    let solde = initial, variation = 0, virements = 0;
+    for (const o of valides) {
+      if (o.date > fin) continue;
+      const v = Math.round(o.montant * poids(o));
+      solde += v;
+      if (o.date >= debut) { variation += v; if (estVirement(o)) virements += v; }
+    }
+    res.push({ mois: ym, solde, variation, virements });
+  }
+  return res;
+}
+
+// Tendance du solde : pente mensuelle (moindres carrés) des soldes de fin de mois passés et du solde en cours. null si moins de 3 points.
+export function penteSolde(historique, soldeEnCours) {
+  const y = [...historique.map((p) => p.solde), soldeEnCours];
+  const n = y.length;
+  if (n < 3) return null;
+  const mx = (n - 1) / 2, my = y.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, sxx = 0;
+  y.forEach((v, i) => { sxy += (i - mx) * (v - my); sxx += (i - mx) ** 2; });
+  return Math.round(sxy / sxx);
+}
+
 // Projection du solde en cours à la fin de chacun des `horizon` prochains mois.
 // Échéancier : toutes les échéances à venir sont lues aux dates prévues (salaire, loyer, abonnements…).
 // Hors échéancier : central = flux moyen ; prudent = mois le plus défavorable ; favorable = mois le plus favorable.
-export function projection({ operations, comptes, comptesIds = [], planifiees = [], aujourdhui, horizon = 6, economieMensuelle = 0 }) {
+export function projection({ operations, comptes, comptesIds = [], planifiees = [], aujourdhui, horizon = 6, economieMensuelle = 0, pente = null }) {
   const mois = aujourdhui.slice(0, 7);
   const suivis = suivisDe(comptes, comptesIds);
   const flux = fluxMensuels({ operations, comptes, comptesIds, planifiees, mois });
@@ -68,10 +106,10 @@ export function projection({ operations, comptes, comptesIds = [], planifiees = 
   const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);
   const nets = flux.length ? flux.map((f) => f.net) : [0];
   const moyNet = moy(nets), minNet = Math.min(...nets), maxNet = Math.max(...nets);
-  const points = [{ k: 0, mois, central: solde, prudent: solde, favorable: solde, avec: solde }];
+  const points = [{ k: 0, mois, central: solde, prudent: solde, favorable: solde, avec: solde, ...(pente != null ? { tendance: solde } : {}) }];
   for (let k = 1; k <= horizon; k++) {
     const cumul = prevues.filter((x) => indice(x.date) <= k).reduce((s, x) => s + x.montant, 0);
-    points.push({ k, mois: moisDecale(mois, k), central: solde + k * moyNet + cumul, prudent: solde + k * minNet + cumul, favorable: solde + k * maxNet + cumul, avec: solde + k * (moyNet + economieMensuelle) + cumul });
+    points.push({ k, mois: moisDecale(mois, k), central: solde + k * moyNet + cumul, prudent: solde + k * minNet + cumul, favorable: solde + k * maxNet + cumul, avec: solde + k * (moyNet + economieMensuelle) + cumul, ...(pente != null ? { tendance: solde + k * pente } : {}) });
   }
   const premierNegatif = points.find((p) => p.k > 0 && p.prudent < 0) || null;
   const rev = prevues.filter((x) => x.montant > 0).reduce((s, x) => s + x.montant, 0), dep = prevues.filter((x) => x.montant < 0).reduce((s, x) => s - x.montant, 0);

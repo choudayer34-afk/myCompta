@@ -25,13 +25,12 @@ const GUIDES = {
     "Les comptes pris en compte se règlent dans Plus, « Comptes suivis »."] },
   previsions: { titre: "Projection", but: "Voir où ira ton solde dans les prochains mois.", points: [
     "Les boutons de comptes en haut choisissent ceux qui comptent. Ton choix est conservé.",
-    "3, 6 ou 12 mois : l'horizon de la projection.",
+    "3, 6 ou 12 mois : l'horizon de la projection. « Historique affiché » règle le nombre de mois passés montrés à gauche d'« auj. ».",
     "La capacité d'épargne compare les recettes et dépenses de l'échéancier à tes dépenses habituelles.",
-    "La courbe montre trois scénarios : prudent, central, favorable. « Voir le tableau » donne les chiffres.",
+    "La courbe montre le solde réel des mois passés (virements compris), puis trois scénarios : prudent, central, favorable, et une ligne pointillée de tendance qui prolonge le rythme des mois passés. « Voir le tableau » donne les chiffres.",
     "« Et si… ? » : simule la réduction d'une catégorie ou la suppression d'un abonnement.",
     "« Objectifs d'épargne » et « Rythme du mois » : date d'atteinte de tes objectifs et dépenses de confort du mois en cours.",
     "« Échéances prises en compte » liste ce que la projection lit dans ton échéancier, et ce qu'elle ignore.",
-    "« Bilan graphique » : recettes et dépenses sur 12 mois, reste de chaque mois avec sa tendance, composition des dépenses. Touche un graphique pour lire un mois ; « Voir en tableau » donne les mêmes chiffres.",
     "Chaque bloc se replie et se déplie en touchant son titre ; replié, il n'affiche que l'information importante."] },
   releve: { titre: "Relevé bancaire", but: "Rapprocher le relevé de ta banque avec tes opérations.", points: [
     "Choisis le compte puis le fichier du relevé (CSV, OFX, QIF ou Excel). Le relevé n'est pas conservé dans l'application.",
@@ -81,6 +80,7 @@ const GUIDES = {
     "« Provision du compte commun » : les lignes prélevées sur le compte joint, avec leur mode de partage. Une ligne annuelle est lissée sur 12 mois et la case « crédit » alimente le taux d'endettement.",
     "« Bilan du mois », « Endettement et reste à vivre » et « Évolution » résument la situation de chacun, ou des deux ensemble.",
     "« Nouveau crédit possible » estime le montant empruntable pour rester sous 35 % d'endettement, selon le taux, la durée et l'assurance que tu indiques.",
+    "« Bilan graphique » : recettes et dépenses sur 12 mois, reste de chaque mois avec sa tendance, composition des dépenses. Touche un graphique pour lire un mois ; « Voir en tableau » donne les mêmes chiffres.",
     "Chaque bloc se replie et se déplie en touchant son titre. Replié, il n'affiche que l'information importante ; ton choix est mémorisé."] }
 };
 
