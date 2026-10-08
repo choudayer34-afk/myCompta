@@ -18,18 +18,30 @@ function couvertesParEcheancier(planifiees) {
   return (o) => (o.planifieeId && ids.has(o.planifieeId)) || noms.has(`${o.compteId}|${cleNom(o.nom)}`);
 }
 
+// Un virement est « interne » quand ses deux côtés sont des comptes suivis : il s'annule dans le total. Vers ou depuis un compte non suivi, c'est un vrai flux.
+function virementInterne(operations, suivis) {
+  const comptesParVirement = new Map();
+  for (const o of operations) if (o.virementId && o.statut !== "annule") { if (!comptesParVirement.has(o.virementId)) comptesParVirement.set(o.virementId, new Set()); comptesParVirement.get(o.virementId).add(o.compteId); }
+  return (o) => {
+    if (!o.virementId) return false;
+    const c = comptesParVirement.get(o.virementId);
+    return !!c && c.size > 1 && [...c].every((id) => suivis.has(id));
+  };
+}
+
 // Revenus, dépenses et net de chaque mois complet précédant `mois`, hors virements, ajustements et opérations de l'échéancier
 // (l'échéancier est lu directement pour l'avenir).
 export function fluxMensuels({ operations, comptes, comptesIds = [], planifiees = [], mois, nb = 3 }) {
   const suivis = suivisDe(comptes, comptesIds);
   const couverte = couvertesParEcheancier(planifiees);
+  const interne = virementInterne(operations, suivis);
   const res = [];
   for (let n = nb; n >= 1; n--) {
     const ym = moisDecale(mois, -n);
     const [debut, fin] = bornesMois(ym);
     let revenus = 0, depenses = 0, nbOps = 0;
     for (const o of operations) {
-      if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || estVirement(o) || ajustement(o) || couverte(o)) continue;
+      if (!suivis.has(o.compteId) || o.date < debut || o.date > fin || o.statut === "annule" || interne(o) || ajustement(o) || couverte(o)) continue;
       const v = Math.round(o.montant * partCompte(suivis.get(o.compteId)) / 100);
       if (v >= 0) revenus += v; else depenses += -v;
       nbOps++;
@@ -92,15 +104,16 @@ export function projection({ operations, comptes, comptesIds = [], planifiees = 
   const prevues = [], lues = [], ignorees = [];
   const nomCompte = new Map(comptes.map((c) => [c.id, c.nom]));
   for (const p of planifiees) {
+    const sourceSuivie = suivis.has(p.compteId), destSuivie = !!p.virementCompteId && suivis.has(p.virementCompteId);
     const raison = !p.prochaine || !p.frequence ? "sans fréquence ou sans prochaine date"
-      : p.virementCompteId && suivis.has(p.virementCompteId) && suivis.has(p.compteId) ? "virement entre comptes suivis (non compté)"
-      : !suivis.has(p.compteId) ? `compte « ${nomCompte.get(p.compteId) || "?"} » non pris en compte`
+      : p.virementCompteId && sourceSuivie && destSuivie ? "virement entre comptes suivis (non compté)"
+      : !sourceSuivie && !destSuivie ? `compte « ${nomCompte.get(p.compteId) || "?"} » non pris en compte`
       : null;
     if (raison) { ignorees.push({ nom: p.nom, montant: p.montant, raison }); continue; }
     const dates = echeancesDues(p, fin).dates;
     if (!dates.length) { ignorees.push({ nom: p.nom, montant: p.montant, raison: p.dateFin && p.prochaine > p.dateFin ? "terminée (date de fin dépassée)" : `prochaine échéance le ${p.prochaine}, au-delà de l'horizon` }); continue; }
     lues.push({ nom: p.nom, montant: p.montant, frequence: p.frequence, prochaine: p.prochaine, nb: dates.length });
-    for (const d of dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: Math.round((p.virementCompteId ? -Math.abs(p.montant) : p.montant) * partCompte(suivis.get(p.compteId)) / 100) });
+    for (const d of dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: p.virementCompteId && !sourceSuivie ? Math.round(Math.abs(p.montant) * partCompte(suivis.get(p.virementCompteId)) / 100) : Math.round((p.virementCompteId ? -Math.abs(p.montant) : p.montant) * partCompte(suivis.get(p.compteId)) / 100) });
   }
   if (!flux.length && !prevues.length) return { insuffisant: true };
   const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);
