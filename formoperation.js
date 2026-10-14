@@ -220,6 +220,7 @@ export function formOperation({ compteId, op = null, modele = null }) {
   majResumeCat();
   if (!op && !src.categorieId) appliquerAssociation();
   if (saisieRapide) iMontant.focus(); else if (!op) iNom.focus();
+  else { dialogue.setAttribute("tabindex", "-1"); dialogue.focus(); }   // ouverture d'une opération existante : aucun champ (ni liste de comptes) ne prend le focus
 
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
