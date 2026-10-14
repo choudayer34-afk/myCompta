@@ -540,3 +540,4 @@ details.bloc-repliable > .repli-corps { margin-top:10px; }
 .proj .sep-auj { stroke:var(--discret); stroke-width:1; stroke-dasharray:2 3; opacity:.6; }
 .sw-passe, .sw-tend { height:3px !important; border-radius:2px; vertical-align:middle; width:16px !important; }
 .sw-passe { background:var(--texte); } .sw-tend { background:repeating-linear-gradient(90deg,var(--s1) 0 6px,transparent 6px 9px); }
+.solde-pointe strong.solde-filtre { color:var(--s0); }

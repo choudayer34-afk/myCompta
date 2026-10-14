@@ -111,9 +111,10 @@ export function monter(conteneur, { id }) {
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
     const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
     const pointe = soldePointe(c, etat.operations);
-    solde.replaceChildren(
-      h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
-      h("em", { class: "solde-encours" }, `pointé : ${euros(pointe)}`));
+    solde.replaceChildren(nonPointees
+      ? h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant solde-filtre" }, euros(pointe)))
+      : h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
+      h("em", { class: "solde-encours" }, nonPointees ? `en cours : ${euros(enCours)}` : `pointé : ${euros(pointe)}`));
     objectifVue.replaceChildren(blocObjectif(c, enCours, aujourdhui()));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
