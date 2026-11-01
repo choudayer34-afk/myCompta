@@ -1,16 +1,16 @@
 import { etat, pret, nouvelId, lot, ecrireEnParallele, serverTimestamp, categoriesTriees, comparerComptes } from "./store.js";
 import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee } from "./planning.js";
-import { euros, versCentimes, versSaisie, dateFr, aujourdhui } from "./format.js";
+import { euros, versCentimes, versSaisie, dateFr, aujourdhui, finDuMois } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { NATURES } from "./operations.js";
 import { libelleCategorie } from "./recherche.js";
 
-// Crée les opérations « en cours » des échéances arrivées à terme. Sans risque de doublon : identifiants déterministes.
+// Crée les opérations « en cours » de toutes les échéances jusqu'à la fin du mois courant (dates futures du mois comprises). Sans risque de doublon : identifiants déterministes.
 // Retourne { nb, fini } ; `fini` se résout quand le serveur a confirmé (jamais hors connexion).
 export function genererEcheances() {
   if (!etat.uid) return { nb: 0, fini: Promise.resolve() };
   const ids = new Set(etat.operations.map((o) => o.id));
-  const { ecritures, nb } = ecrituresEcheances(etat.planifiees, ids, aujourdhui(), serverTimestamp());
+  const { ecritures, nb } = ecrituresEcheances(etat.planifiees, ids, finDuMois(aujourdhui()), serverTimestamp());
   if (!ecritures.length) return { nb: 0, fini: Promise.resolve() };
   const fini = ecrireEnParallele(ecritures).catch((e) => console.error("Échéances", e));
   return { nb, fini };
