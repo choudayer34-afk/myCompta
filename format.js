@@ -35,4 +35,10 @@ export function aujourdhui() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Dernier jour du mois d'une date AAAA-MM-JJ (ex. 2026-11-15 -> 2026-11-30).
+export function finDuMois(dateIso) {
+  const [a, m] = dateIso.split("-").map(Number);
+  return `${a}-${String(m).padStart(2, "0")}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, "0")}`;
+}
+
 export const sansAccent = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
