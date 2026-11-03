@@ -8,12 +8,20 @@ import { comparerPeriodes } from "./evolutioncalc.js";
 const moisLong = (ym) => { const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
 const bornes = (mode, v) => (mode === "annee" ? [`${v}-01-01`, `${v}-12-31`] : bornesMois(v));
 const libelle = (mode, v) => (mode === "annee" ? v : moisLong(v));
+// Mode « À date » : B = mois en cours du 1er à aujourd'hui ; A = mois précédent du 1er au même jour (borné à sa fin).
+function bornesADate(a, b) {
+  const finB = b === aujourdhui().slice(0, 7) ? aujourdhui() : bornesMois(b)[1];
+  const jour = +finB.slice(8);
+  const [debutA, finA] = bornesMois(a);
+  const jourA = Math.min(jour, +finA.slice(8));
+  return { a: [debutA, `${a}-${String(jourA).padStart(2, "0")}`], b: [`${b}-01`, finB], jour, jourA };
+}
 const pct = (p) => (p == null ? "nouveau" : `${p > 0 ? "+" : ""}${String(p).replace(".", ",")} %`);
 
 export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
-  let mode = "mois";
+  let mode = "date";
   let a = moisDecale(mois, -1), b = mois;
-  const modes = h("div", { class: "modes-bilan" }, [["mois", "Deux mois"], ["annee", "Deux années"]].map(([m, l]) =>
+  const modes = h("div", { class: "modes-bilan" }, [["date", "À date"], ["mois", "Deux mois"], ["annee", "Deux années"]].map(([m, l]) =>
     h("button", { type: "button", class: "sec", "data-cmode": m, onclick: () => {
       mode = m; if (m === "annee") { b = aujourdhui().slice(0, 4); a = String(+b - 1); } else { b = mois; a = moisDecale(mois, -1); }
       construireChamps(); maj();
@@ -23,6 +31,7 @@ export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
   conteneur.replaceChildren(modes, zoneChamps, corps);
 
   function construireChamps() {
+    if (mode === "date") { zoneChamps.replaceChildren(); return; }
     let iA, iB;
     if (mode === "annee") {
       const annees = [...new Set([...etat.operations.map((o) => o.date.slice(0, 4)), a, b])].sort().reverse();
@@ -38,7 +47,10 @@ export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
   function maj() {
     modes.querySelectorAll("button").forEach((x) => x.classList.toggle("actif-filtre", x.dataset.cmode === mode));
     if (!pret()) { corps.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
-    const r = comparerPeriodes({ categories: etat.categories, operations: etat.operations, comptes: etat.comptes, comptesIds: comptesSuivis(), a: bornes(mode, a), b: bornes(mode, b) });
+    const ad = mode === "date" ? bornesADate(a, b) : null;
+    const nomA = ad ? `${moisLong(a)} · du 1er au ${ad.jourA}` : libelle(mode, a);
+    const nomB = ad ? `${moisLong(b)} · du 1er au ${ad.jour}` : libelle(mode, b);
+    const r = comparerPeriodes({ categories: etat.categories, operations: etat.operations, comptes: etat.comptes, comptesIds: comptesSuivis(), a: ad ? ad.a : bornes(mode, a), b: ad ? ad.b : bornes(mode, b) });
     if (!r.totalA && !r.totalB) { corps.replaceChildren(h("p", { class: "vide" }, "Aucune dépense sur ces deux périodes.")); return; }
     const fleche = (e) => (e > 0 ? "▲" : e < 0 ? "▼" : "=");
     const classe = (e) => (e > 0 ? "neg" : e < 0 ? "pos" : "");   // dépenses en hausse = rouge, en baisse = vert
@@ -46,8 +58,8 @@ export function monter(conteneur, { mois = aujourdhui().slice(0, 7) } = {}) {
     const largeur = (v) => `width:${Math.max(v ? 2 : 0, (v / max) * 100)}%`;
     corps.replaceChildren(
       h("div", { class: "carte bilan-haut" },
-        h("div", { class: "ligne-synthese" }, h("span", {}, `A · ${libelle(mode, a)}`), h("strong", {}, euros(r.totalA))),
-        h("div", { class: "ligne-synthese" }, h("span", {}, `B · ${libelle(mode, b)}`), h("strong", {}, euros(r.totalB))),
+        h("div", { class: "ligne-synthese" }, h("span", {}, `A · ${nomA}`), h("strong", {}, euros(r.totalA))),
+        h("div", { class: "ligne-synthese" }, h("span", {}, `B · ${nomB}`), h("strong", {}, euros(r.totalB))),
         h("p", { class: "reste-budget " + classe(r.ecart) }, `${fleche(r.ecart)} ${euros(Math.abs(r.ecart))} (${pct(r.pct)}) de B par rapport à A`)),
       ...r.lignes.map((l) => h("div", { class: "carte ligne-compar" },
         h("div", { class: "haut-budget" }, h("span", { class: "nom-budget" }, etiquette(l.categorieId)),
