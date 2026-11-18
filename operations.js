@@ -212,7 +212,9 @@ export function monter(conteneur, { id }) {
           formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) });
         } },
           h("span", { class: "op-texte" }, h("span", { class: "op-nom" }, o.nom), h("small", { class: "op-cat" }, libCat)),
-          h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)))));
+          h("span", { class: "op-droite" },
+            h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
+            o.statut === "annule" ? null : h("small", { class: "op-encours", title: "Solde en cours après cette opération" }, euros(o.solde))))));
     }
     if (lignes.length > limite) {
       noeuds.push(h("button", { class: "sec plus", onclick: () => { limite += PAGE; majListe(); } }, `Afficher plus (${lignes.length - limite} restantes)`));
