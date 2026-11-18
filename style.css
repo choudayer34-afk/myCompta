@@ -397,6 +397,8 @@ h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-wei
 .op-nom { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .op-cat { color:var(--discret); font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .op-montant { flex:0 0 auto; font-weight:600; white-space:nowrap; }
+.op-droite { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; }
+.op-encours { color:var(--discret); font-style:italic; font-size:.78rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 
 /* v40 : écran Plus (cartes sur 3 colonnes) */
 .grille-plus { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
