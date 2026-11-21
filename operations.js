@@ -171,7 +171,7 @@ export function monter(conteneur, { id }) {
     rapide.classList.toggle("cache", !modeles.length);
     rapide.replaceChildren(h("span", { class: "rapide-titre" }, "Saisie rapide"),
       ...modeles.map((m) => h("button", { type: "button", class: "puce", title: `${m.nb} fois · dernier montant ${euros(m.dernierMontant)}`,
-        onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, aExporter: m.aExporter, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
+        onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, aExporter: m.aExporter, date: aujourdhui() } }) }, m.nom)));
     const aPointer = lignes.filter((x) => x.statut === "encours");
     detailSolde.textContent = aPointer.length ? `${aPointer.length} à pointer` : "";
     bFiltre.classList.toggle("actif-filtre", nonPointees);
