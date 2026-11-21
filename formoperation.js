@@ -5,6 +5,7 @@ import { versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, combo, couleurAuHasard } from "./ui.js";
 import { nomsConnus, associationPour, cleNom } from "./noms.js";
 import { NATURES, STATUTS } from "./constantes.js";
+import { defautsCompte, exportPourSens } from "./calc.js";
 import { FREQUENCES, suivante } from "./planning.js";
 import { suggererCategories, mots } from "./suggestion.js";
 
@@ -33,7 +34,12 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const comptes = etat.comptes.filter((c) => !c.archive || c.id === src.compteId).sort(comparerComptes);
   const optComptes = comptes.map((c) => [c.id, c.nom]);
 
-  const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], "operation");
+  // Valeurs par défaut du compte (nouvelle opération seulement)
+  const dfl = op ? null : defautsCompte(etat.comptes.find((c) => c.id === (src.compteId || compteId)));
+  const sensInit = src.sens != null ? Number(src.sens) : src.montant > 0 ? 1 : (dfl ? dfl.sens : -1);
+  let exportTouche = false, natureTouchee = false, statutTouche = false;
+  const reglesCompte = () => defautsCompte(etat.comptes.find((c) => c.id === iCompte.value));
+  const iType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], dfl && !modele && dfl.type === "virement" && comptes.length > 1 ? "virement" : "operation");
   // Nom : liste des noms déjà saisis (filtre « contient »), la saisie libre ajoute un nouveau nom
   const noms = nomsConnus(etat.operations, etat.planifiees).map((n) => ({ id: n.nom, libelle: n.nom }));
   const cNom = combo({ elements: () => noms, texte: src.nom || "", requis: true, minCaracteres: 3, placeholder: "Nom (suggestions dès 3 lettres)" });
@@ -42,17 +48,17 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const iDate = h("input", { type: "date", required: true, value: src.date || aujourdhui() });
   const iCompte = selecteur(optComptes, src.compteId || compteId);
   const iDest = selecteur(optComptes, (comptes.find((c) => c.id !== (src.compteId || compteId)) || {}).id);
-  const iNature = selecteur(NATURES, src.nature && (op || src.nature !== "autre") ? src.nature : "carte");
+  const iNature = selecteur(NATURES, src.nature && (op || src.nature !== "autre") ? src.nature : (dfl ? dfl.nature : "carte"));
   const iInfo = h("input", { type: "text", value: src.info || "", autocomplete: "off" });
-  const iExport = h("input", { type: "checkbox", checked: op ? !!op.aExporter : true });
+  const iExport = h("input", { type: "checkbox", checked: op ? !!op.aExporter : exportPourSens(dfl.export, sensInit) });
   const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export");
   const iPointage = h("input", { type: "date", value: src.datePointage || "" });
   const erreur = h("p", { class: "erreur" });
 
   // Sens : flèche rouge vers le bas (dépense) ou verte vers le haut (recette), on la touche pour basculer
-  let sens = src.sens != null ? Number(src.sens) : src.montant > 0 ? 1 : -1;
+  let sens = sensInit;
   const libelleSens = h("span", { class: "sens-texte" });
-  const bSens = h("button", { type: "button", class: "sens", onclick: () => { sens = -sens; majSens(); } });
+  const bSens = h("button", { type: "button", class: "sens", onclick: () => { sens = -sens; majSens(); if (!op && !exportTouche) iExport.checked = exportPourSens(reglesCompte().export, sens); } });
   function majSens() {
     bSens.textContent = sens === 1 ? "↑" : "↓";
     bSens.classList.toggle("recette", sens === 1);
@@ -67,9 +73,9 @@ export function formOperation({ compteId, op = null, modele = null }) {
   const cMontant = h("div", { class: "champ" }, h("label", {}, "Montant (€) · ", libelleSens), rangeeMontant);
 
   // Statut : trois icônes
-  let statut = src.statut || "encours";
+  let statut = src.statut || (dfl ? dfl.statut : "encours");
   const boutonsStatut = STATUTS.map(([v, l]) => h("button", { type: "button", class: "statut-choix", role: "radio", "data-v": v, title: l,
-    onclick: () => { statut = v; basculer(); } }, h("span", { class: "ico" }, ICONES[v]), h("small", {}, l)));
+    onclick: () => { statut = v; statutTouche = true; basculer(); } }, h("span", { class: "ico" }, ICONES[v]), h("small", {}, l)));
   const cStatut = h("div", { class: "champ" }, h("label", {}, "Statut"), h("div", { class: "statut-groupe", role: "radiogroup" }, boutonsStatut));
 
   // Catégorie : puces fréquentes (icône + nom), recherche « contient » triée par ordre alphabétique, ajout à la volée
@@ -184,6 +190,15 @@ export function formOperation({ compteId, op = null, modele = null }) {
   iType.addEventListener("change", basculer);
   iNature.addEventListener("change", basculer);
   iCompte.addEventListener("change", majPuces);
+  iExport.addEventListener("change", () => { exportTouche = true; });
+  iNature.addEventListener("change", () => { natureTouchee = true; });
+  // Nouvelle opération : changer de compte reprend les valeurs par défaut du nouveau compte (sauf ce qui a été touché à la main)
+  if (!op) iCompte.addEventListener("change", () => {
+    const d = reglesCompte();
+    if (!exportTouche) iExport.checked = exportPourSens(d.export, sens);
+    if (!natureTouchee && !modele) iNature.value = d.nature;
+    if (!statutTouche && !modele) { statut = d.statut; basculer(); }
+  });
 
   const actions = h("div", { class: "actions barre-fixe" },
     h("button", { type: "submit" }, "Enregistrer"),
