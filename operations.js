@@ -11,16 +11,24 @@ import { formRapide } from "./rapide.js";
 import { formOperation } from "./formoperation.js";
 import { formCloture } from "./clotureui.js";
 import { PERIODES, bornesFiltre } from "./periode.js";
+import { balayer } from "./balayage.js";
 
 export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
 const libelleNature = (n) => (NATURES.find((x) => x[0] === n) || [0, ""])[1];
 
 const PAGE = 200;
+const DELAI_ANNULATION = 5000;
+
+// Suppression par balayage en attente (annulable) : validée aussi si la page se ferme.
+let validerEnAttente = null;
+window.addEventListener("pagehide", () => { if (validerEnAttente) validerEnAttente(); });
 
 export function monter(conteneur, { id }) {
   conteneur.classList.remove("mode-selection");
   let recherche = "";
+  const masquees = new Set();   // opérations supprimées par balayage, en attente de validation
+  let suppression = null;       // { ids, minuteur }
   let limite = PAGE;
   let fPeriode = "", fDu = "", fAu = "";   // filtre de période (préréglage ou dates choisies)
   let fExport = "", fCat = "";   // filtres : export (« oui » / « non »), catégorie (« avec » / « sans » / « aclasser »)
@@ -86,9 +94,49 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, datesPerso, resumePeriode, liste, ajout, barreSel);
+  const texteAnnuler = h("span", {});
+  const bandeauAnnuler = h("div", { class: "bandeau-annuler cache", role: "status" }, texteAnnuler,
+    h("button", { type: "button", onclick: () => annulerSuppression() }, "Annuler"));
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, datesPerso, resumePeriode, liste, ajout, barreSel, bandeauAnnuler);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
+
+  // Suppression par balayage : l'opération disparaît tout de suite, l'effacement réel a lieu après le délai (ou à la fermeture).
+  function validerSuppression() {
+    if (!suppression) return;
+    clearTimeout(suppression.minuteur);
+    const l = lot();
+    suppression.ids.forEach((i) => l.del("operations", i));
+    l.envoyer();
+    suppression = null; validerEnAttente = null;
+    bandeauAnnuler.classList.add("cache");
+  }
+  function annulerSuppression() {
+    if (!suppression) return;
+    clearTimeout(suppression.minuteur);
+    suppression.ids.forEach((i) => masquees.delete(i));
+    suppression = null; validerEnAttente = null;
+    bandeauAnnuler.classList.add("cache");
+    majListe();
+  }
+  function supprimerAvecAnnulation(o) {
+    validerSuppression();
+    const paire = o.virementId ? etat.operations.find((x) => x.virementId === o.virementId && x.id !== o.id) : null;
+    const ids = paire ? [o.id, paire.id] : [o.id];
+    ids.forEach((i) => masquees.add(i));
+    texteAnnuler.textContent = paire ? "Virement supprimé (2 opérations)" : "Opération supprimée";
+    bandeauAnnuler.classList.remove("cache");
+    suppression = { ids, minuteur: setTimeout(validerSuppression, DELAI_ANNULATION) };
+    validerEnAttente = validerSuppression;
+    majListe();
+  }
+
+  // Marque / démarque « à exporter » sans ouvrir la fiche
+  function basculerExport(o) {
+    const l = lot();
+    l.set("operations", o.id, { aExporter: !o.aExporter });
+    l.envoyer();
+  }
 
   // Pointage rapide d'une opération (en cours <-> pointé) sans ouvrir la fiche
   function basculer(o) {
@@ -108,9 +156,10 @@ export function monter(conteneur, { id }) {
     if (!pret()) { solde.replaceChildren(); detailSolde.textContent = ""; titre.textContent = "…"; liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     if (!c) { titre.textContent = "Introuvable"; liste.replaceChildren(h("p", { class: "vide" }, "Ce compte n'existe pas.")); return; }
     titre.textContent = c.nom;
-    let lignes = lignesAvecSolde(c, etat.operations).reverse();
+    const ops = masquees.size ? etat.operations.filter((o) => !masquees.has(o.id)) : etat.operations;
+    let lignes = lignesAvecSolde(c, ops).reverse();
     const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
-    const pointe = soldePointe(c, etat.operations);
+    const pointe = soldePointe(c, ops);
     solde.replaceChildren(nonPointees
       ? h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant solde-filtre" }, euros(pointe)))
       : h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
@@ -205,16 +254,23 @@ export function monter(conteneur, { id }) {
           onclick: o.statut === "annule" ? null : () => basculer(o)
         }, h("span", { class: "glyphe" }, glyphe), coche);
       }
-      carteJour.append(h("div", { class: "op-ligne" + (o.statut === "annule" ? " annule" : "") + (mode && choisie ? " choisie" : "") },
+      const ligneEl = h("div", { class: "op-ligne" + (o.statut === "annule" ? " annule" : "") + (mode && choisie ? " choisie" : "") },
         icone,
         h("button", { type: "button", class: "op-corps", onclick: () => {
           if (mode) { if (choisies.has(o.id)) choisies.delete(o.id); else choisies.add(o.id); majListe(); return; }
           formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) });
         } },
-          h("span", { class: "op-texte" }, h("span", { class: "op-nom" }, o.nom), h("small", { class: "op-cat" }, libCat)),
+          h("span", { class: "op-texte" }, h("span", { class: "op-nom" }, o.nom), h("small", { class: "op-cat" }, o.aExporter && o.statut !== "annule" ? h("span", { class: "op-export", title: "À exporter" }, "📤") : null, libCat)),
           h("span", { class: "op-droite" },
             h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
-            o.statut === "annule" ? null : h("small", { class: "op-encours", title: "Solde en cours après cette opération" }, euros(o.solde))))));
+            o.statut === "annule" ? null : h("small", { class: "op-encours", title: "Solde en cours après cette opération" }, euros(o.solde)))));
+      const enveloppe = h("div", { class: "op-balayage" },
+        h("div", { class: "op-fond", "aria-hidden": "true" },
+          h("span", { class: "fond-export" }, o.aExporter ? "Ne plus exporter" : "📤 Exporter"),
+          h("span", { class: "fond-suppr" }, "🗑 Supprimer")),
+        ligneEl);
+      if (!mode) balayer(enveloppe, ligneEl, { surDroite: () => basculerExport(o), surGauche: () => supprimerAvecAnnulation(o) });
+      carteJour.append(enveloppe);
     }
     if (lignes.length > limite) {
       noeuds.push(h("button", { class: "sec plus", onclick: () => { limite += PAGE; majListe(); } }, `Afficher plus (${lignes.length - limite} restantes)`));
