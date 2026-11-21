@@ -4,6 +4,7 @@ import { euros, versCentimes, versSaisie, dateFr, aujourdhui, finDuMois } from "
 import { h, modale, champ, selecteur } from "./ui.js";
 import { NATURES } from "./operations.js";
 import { libelleCategorie } from "./recherche.js";
+import { defautsCompte, exportPourSens } from "./calc.js";
 
 // Crée les opérations « en cours » de toutes les échéances jusqu'à la fin du mois courant (dates futures du mois comprises). Sans risque de doublon : identifiants déterministes.
 // Retourne { nb, fini } ; `fini` se résout quand le serveur a confirmé (jamais hors connexion).
@@ -34,8 +35,16 @@ export function formPlanifiee(p = null) {
   const iProchaine = h("input", { type: "date", required: true, value: p?.prochaine || aujourdhui() });
   const iFin = h("input", { type: "date", value: p?.dateFin || "" });
   const iInfo = h("input", { type: "text", value: p?.info || "" });
-  const iExport = h("input", { type: "checkbox", checked: p ? !!p.aExporter : true });
+  const iExport = h("input", { type: "checkbox", checked: p ? !!p.aExporter : exportPourSens(defautsCompte(etat.comptes.find((c) => c.id === iCompte.value)).export, +iSens.value) });
   const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export (opérations créées)");
+  if (!p) {
+    // Nouvelle planifiée : l'export suit la règle du compte et le sens, tant qu'on n'y a pas touché
+    let exportTouche = false;
+    iExport.addEventListener("change", () => { exportTouche = true; });
+    const majExport = () => { if (!exportTouche) iExport.checked = exportPourSens(defautsCompte(etat.comptes.find((c) => c.id === iCompte.value)).export, +iSens.value); };
+    iCompte.addEventListener("change", majExport);
+    iSens.addEventListener("change", majExport);
+  }
   const erreur = h("p", { class: "erreur" });
 
   const cSens = champ("Sens", iSens);
