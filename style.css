@@ -387,6 +387,24 @@ h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-wei
 .op-ligne.annule { opacity:.55; }
 .op-ligne.annule .op-nom { text-decoration:line-through; }
 .op-ligne.choisie { background:rgba(15,118,110,.12); }
+.op-export { font-size:.78rem; margin-right:4px; }
+/* Balayage : fond révélé sous la ligne (bleu = export, rouge = suppression) */
+.op-balayage { position:relative; overflow:hidden; }
+.op-balayage + .op-balayage { border-top:1px solid var(--bord); }
+.op-balayage .op-ligne { position:relative; border-top:0; background:var(--carte); touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+.op-balayage .op-ligne.choisie { background:var(--carte) linear-gradient(rgba(15,118,110,.12), rgba(15,118,110,.12)); }
+.op-balayage .op-ligne.annule { opacity:1; }
+.op-balayage .op-ligne.annule > * { opacity:.55; }
+.op-fond { position:absolute; inset:0; display:none; align-items:center; justify-content:space-between; padding:0 16px; color:#fff; font-weight:600; font-size:.9rem; }
+.op-balayage.en-geste .op-fond { display:flex; }
+.op-fond span { opacity:0; }
+.op-balayage.vers-droite .op-fond { background:#2563eb; }
+.op-balayage.vers-droite .fond-export { opacity:1; }
+.op-balayage.vers-gauche .op-fond { background:#dc2626; }
+.op-balayage.vers-gauche .fond-suppr { opacity:1; }
+.op-balayage.arme .op-fond span { font-size:1rem; }
+.bandeau-annuler { position:fixed; left:12px; right:88px; bottom:calc(76px + env(safe-area-inset-bottom)); z-index:7; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-radius:12px; background:#1f2937; color:#fff; font-size:.9rem; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+.bandeau-annuler button { background:none; border:0; color:#7dd3fc; font-weight:600; padding:4px 8px; cursor:pointer; }
 .op-icone { position:relative; flex:0 0 auto; width:42px; height:42px; border-radius:50%; border:0; padding:0; display:flex; align-items:center; justify-content:center; background:var(--bord); cursor:pointer; font-size:1.25rem; color:inherit; }
 .op-icone.sel { font-size:1.4rem; background:transparent; }
 .op-icone .glyphe { line-height:1; }
