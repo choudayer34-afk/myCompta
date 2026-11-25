@@ -243,6 +243,13 @@ nav a { font-size:.78rem; padding:14px 0; white-space:nowrap; }
 .barre-budget .prevu { background:var(--bb,#16a34a); opacity:.4; }
 .barre-budget.vert { --bb:#16a34a; } .barre-budget.orange { --bb:#ea580c; } .barre-budget.rouge { --bb:#dc2626; }
 .ligne-synthese { display:flex; justify-content:space-between; padding:2px 0; }
+/* Provisions : jauge du provisionné avec repère du rythme prévu */
+.ligne-prov { display:flex; flex-direction:column; gap:4px; }
+.ligne-prov small { color:var(--discret); }
+.jauge-prov { position:relative; height:10px; border-radius:6px; background:var(--bord); margin:8px 0 6px; }
+.jauge-prov .rempli { position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:#16a34a; }
+.jauge-prov.retard .rempli { background:#ea580c; }
+.jauge-prov .repere { position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; background:var(--texte); }
 .reste-budget { margin:4px 0 0; font-weight:700; text-align:right; }
 .ligne-budget { display:block; width:100%; text-align:left; color:var(--texte); font:inherit; cursor:pointer; margin-bottom:10px; }
 .haut-budget { display:flex; justify-content:space-between; gap:8px; }
