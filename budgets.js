@@ -7,7 +7,8 @@ import { calculerBudget, detailCategorie, moisDecale } from "./budget.js";
 import * as vueRepartition from "./bilan.js";
 import * as vueEvolution from "./evolution.js";
 import * as vueComparaison from "./comparaison.js";
-const VUES = { repartition: vueRepartition, evolution: vueEvolution, comparaison: vueComparaison };
+import * as vueProvisions from "./provisionsui.js";
+const VUES = { repartition: vueRepartition, evolution: vueEvolution, comparaison: vueComparaison, provisions: vueProvisions };
 
 const moisTexte = (ym) => {
   const t = new Date(ym + "-01T12:00:00").toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
@@ -94,7 +95,7 @@ export function monter(conteneur) {
     titre,
     h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); choisies.clear(); maj(); } }, "›"));
   const enTete = h("div", { class: "entete-vue" });
-  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"], ["evolution", "Évolution"], ["comparaison", "Comparer"]].map(([v, l]) =>
+  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"], ["evolution", "Évolution"], ["comparaison", "Comparer"], ["provisions", "Provisions"]].map(([v, l]) =>
     h("button", { type: "button", class: "sec", "data-vue": v, onclick: () => { vueCourante = v; repartition = null; maj(); } }, l)));
   const corps = h("div", {});
   const barreSel = h("div", { class: "barre-selection cache" });
