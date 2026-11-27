@@ -27,6 +27,13 @@ export function lignesAvecSolde(compte, operations) {
   });
 }
 
+// Solde « à date » : solde initial + opérations non annulées datées au plus tard de `jour` (les opérations à venir ne comptent pas).
+export function soldeADate(compte, operations, jour) {
+  let s = compte.soldeInitial || 0;
+  for (const o of operations) if (o.compteId === compte.id && o.statut !== "annule" && o.date <= jour) s += o.montant;
+  return s;
+}
+
 // Solde « pointé » : solde initial + opérations pointées uniquement.
 export function soldePointe(compte, operations) {
   let s = compte.soldeInitial || 0;
@@ -70,12 +77,14 @@ export function habitudes(compteId, operations, aujourdhui, exclus = new Set(), 
 export const partCompte = (c) => (Number.isFinite(c.part) ? Math.min(100, Math.max(0, c.part)) : 100);
 
 // Totaux des comptes actifs : « ma part » (comptes joints au prorata) et total brut.
-export function totauxComptes(comptes, operations) {
-  const t = { enCours: 0, pointe: 0, brutEnCours: 0, brutPointe: 0, partiels: [] };
+export function totauxComptes(comptes, operations, jour = null) {
+  const t = { enCours: 0, pointe: 0, aDate: 0, brutEnCours: 0, brutPointe: 0, brutADate: 0, partiels: [] };
   for (const c of comptes) {
     if (c.archive) continue;
     const ec = soldeCompte(c, operations), po = soldePointe(c, operations), part = partCompte(c);
-    t.brutEnCours += ec; t.brutPointe += po;
+    const ad = jour ? soldeADate(c, operations, jour) : ec;
+    t.brutEnCours += ec; t.brutPointe += po; t.brutADate += ad;
+    t.aDate += Math.round(ad * part / 100);
     t.enCours += Math.round(ec * part / 100); t.pointe += Math.round(po * part / 100);
     if (part < 100) t.partiels.push({ nom: c.nom, part });
   }
