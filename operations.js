@@ -1,6 +1,6 @@
 import { blocObjectif } from "./objectif.js";
 import { etat, pret, nouvelId, lot, serverTimestamp, categoriesTriees, ecrireEnParallele, comparerComptes } from "./store.js";
-import { lignesAvecSolde, soldePointe, habitudes } from "./calc.js";
+import { lignesAvecSolde, soldePointe, soldeADate, habitudes } from "./calc.js";
 import { euros, versCentimes, versSaisie, dateFr, moisFr, aujourdhui, sansAccent } from "./format.js";
 import { h, modale, champ, selecteur, combo, couleurAuHasard } from "./ui.js";
 import { nomsConnus, associationPour, cleNom } from "./noms.js";
@@ -94,7 +94,15 @@ export function monter(conteneur, { id }) {
   function basculer(o) {
     const pointe = o.statut === "pointe";
     const l = lot();
-    l.set("operations", o.id, { statut: pointe ? "encours" : "pointe", datePointage: pointe ? null : aujourdhui() });
+    const maj = { statut: pointe ? "encours" : "pointe", datePointage: pointe ? null : aujourdhui() };
+    // Pointer une opération à venir : elle a déjà eu lieu, sa date devient celle du pointage (après confirmation)
+    if (!pointe && o.date > aujourdhui()) {
+      if (!confirm(`Cette opération est datée du ${dateFr(o.date)} (à venir).\nLa pointer la datera d'aujourd'hui (${dateFr(aujourdhui())}). Confirmer ?`)) return;
+      maj.date = aujourdhui();
+      // Virement : l'autre côté suit la même date
+      if (o.virementId) for (const a of etat.operations) if (a.virementId === o.virementId && a.id !== o.id) l.set("operations", a.id, { date: aujourdhui() });
+    }
+    l.set("operations", o.id, maj);
     l.envoyer();
   }
 
@@ -111,10 +119,11 @@ export function monter(conteneur, { id }) {
     let lignes = lignesAvecSolde(c, etat.operations).reverse();
     const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
     const pointe = soldePointe(c, etat.operations);
+    const aDate = soldeADate(c, etat.operations, aujourdhui());
     solde.replaceChildren(nonPointees
       ? h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant solde-filtre" }, euros(pointe)))
       : h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
-      h("em", { class: "solde-encours" }, nonPointees ? `en cours : ${euros(enCours)}` : `pointé : ${euros(pointe)}`));
+      h("em", { class: "solde-encours" }, (nonPointees ? `en cours : ${euros(enCours)}` : `pointé : ${euros(pointe)}`) + ` · à date : ${euros(aDate)}`));
     objectifVue.replaceChildren(blocObjectif(c, enCours, aujourdhui()));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
