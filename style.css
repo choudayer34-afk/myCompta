@@ -563,3 +563,7 @@ details.bloc-repliable > .repli-corps { margin-top:10px; }
 .corrections { margin:10px 0; padding:8px 10px; border:1px solid var(--bord); border-radius:10px; }
 .corrections summary { cursor:pointer; font-weight:600; font-size:.92rem; }
 .corrections input[type=date] { margin:6px 0; }
+
+/* v92 : solde après chaque opération */
+.op-droite { display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+.op-solde { font-size:.74rem; color:var(--discret); font-style:italic; white-space:nowrap; }
