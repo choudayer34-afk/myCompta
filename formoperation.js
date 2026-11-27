@@ -1,7 +1,7 @@
 // Formulaire de saisie d'une opération : compte, nom, export, catégorie (puces + recherche), montant avec flèche de sens,
 // date, nature, statut en icônes, fréquence éventuelle.
 import { etat, nouvelId, lot, serverTimestamp, categoriesTriees, comparerComptes } from "./store.js";
-import { versCentimes, versSaisie, aujourdhui } from "./format.js";
+import { versCentimes, versSaisie, aujourdhui, dateFr } from "./format.js";
 import { h, modale, champ, selecteur, combo, couleurAuHasard } from "./ui.js";
 import { nomsConnus, associationPour, cleNom } from "./noms.js";
 import { NATURES, STATUTS } from "./constantes.js";
@@ -227,6 +227,11 @@ export function formOperation({ compteId, op = null, modele = null }) {
     const saisi = versCentimes(iMontant.value);
     if (saisi === null || saisi === 0) { erreur.textContent = "Montant invalide."; return; }
     const m = Math.abs(saisi);
+    // Pointer une opération à venir : elle a donc déjà eu lieu, sa date devient celle du pointage
+    if (statut === "pointe" && (!op || op.statut !== "pointe") && iDate.value > aujourdhui()) {
+      if (!confirm(`Cette opération est datée du ${dateFr(iDate.value)} (à venir).\nLa pointer la datera d'aujourd'hui (${dateFr(aujourdhui())}). Confirmer ?`)) return;
+      iDate.value = aujourdhui();
+    }
     const datePointage = statut === "pointe" ? (iPointage.value || aujourdhui()) : null;
     const commun = { nom: iNom.value.trim(), commentaire: iCom.value.trim(), date: iDate.value, statut, datePointage, info: iInfo.value.trim(), aExporter: iExport.checked };
     const nouveauVirement = !op && iType.value === "virement";
