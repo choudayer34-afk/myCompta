@@ -43,6 +43,31 @@ export function suivante(date, freq, ancre) {
   return iso(yy, mm, Math.min(ancre || j, finDeMois(yy, mm)));
 }
 
+// ── Échéances « par séances » : tarif × nombre de séances du mois + frais mensuels (+ frais uniques à la 1re échéance) ──
+// p.seances = { tarif, jour (0 = dimanche … 6 = samedi), decalage (0 : séances du mois de l'échéance, -1 : du mois précédent), fraisMensuels, fraisUniques }
+// p.seancesMois = { "AAAA-MM": nombre } remplace le nombre calculé pour un mois (séance annulée ou ajoutée) ; p.premiere = date de la 1re échéance.
+const moisDe = (ym, decalage) => { let [y, m] = ym.split("-").map(Number); m += decalage; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } return `${y}-${p2(m)}`; };
+export function nbJoursSemaine(mois, jour) {
+  const [y, m] = mois.split("-").map(Number);
+  let n = 0;
+  for (let d = 1; d <= finDeMois(y, m); d++) if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() === jour) n++;
+  return n;
+}
+// Mois dont on compte les séances pour une échéance à `date`.
+export const moisDesSeances = (p, date) => moisDe(date.slice(0, 7), (p.seances && p.seances.decalage) || 0);
+export function nbSeances(p, date) {
+  const mois = moisDesSeances(p, date);
+  const force = p.seancesMois && p.seancesMois[mois];
+  return Number.isFinite(force) ? force : nbJoursSemaine(mois, p.seances.jour);
+}
+// Montant (centimes, signé comme p.montant) de l'échéance du `date`.
+export function montantEcheance(p, date) {
+  if (!p.seances) return p.montant;
+  const s = p.seances;
+  const abs = nbSeances(p, date) * (s.tarif || 0) + (s.fraisMensuels || 0) + (p.premiere && date === p.premiere ? (s.fraisUniques || 0) : 0);
+  return p.montant < 0 || p.virementCompteId ? -abs : abs;
+}
+
 export const estTerminee = (p) => !!(p.dateFin && p.prochaine > p.dateFin);
 
 // Échéances à créer jusqu'à `jusqua` inclus (au plus 600 par passage).
@@ -70,11 +95,11 @@ export function ecrituresEcheances(planifiees, idsExistants, jusqua, cree) {
       if (idsExistants.has(idA)) continue;
       const base = { nom: p.nom, commentaire: p.commentaire || "", date: d, statut: "encours", datePointage: null, info: p.info || "", aExporter: !!p.aExporter, planifieeId: p.id, cree };
       if (p.virementCompteId) {
-        const m = -Math.abs(p.montant);
+        const m = -Math.abs(montantEcheance(p, d));
         ecritures.push(["operations", idA, { ...base, compteId: p.compteId, montant: m, nature: "virement", categorieId: null, virementId: idA }]);
         ecritures.push(["operations", idB, { ...base, compteId: p.virementCompteId, montant: -m, nature: "virement", categorieId: null, virementId: idA }]);
       } else {
-        ecritures.push(["operations", idA, { ...base, compteId: p.compteId, montant: p.montant, nature: p.nature || "autre", categorieId: p.categorieId || null, virementId: null }]);
+        ecritures.push(["operations", idA, { ...base, compteId: p.compteId, montant: montantEcheance(p, d), nature: p.nature || "autre", categorieId: p.categorieId || null, virementId: null }]);
       }
       nb++;
     }

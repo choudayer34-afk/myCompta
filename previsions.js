@@ -1,7 +1,7 @@
 // Aide à la décision : flux moyens, projection du solde, objectifs, rythme du mois (aucun accès à Firebase ni au DOM).
 import { partCompte, soldeCompte } from "./calc.js";
 import { bornesMois, moisDecale } from "./budget.js";
-import { echeancesDues } from "./planning.js";
+import { echeancesDues, montantEcheance } from "./planning.js";
 import { repartitionDepenses } from "./bilancalc.js";
 import { racines } from "./economies.js";
 
@@ -113,7 +113,10 @@ export function projection({ operations, comptes, comptesIds = [], planifiees = 
     const dates = echeancesDues(p, fin).dates;
     if (!dates.length) { ignorees.push({ nom: p.nom, montant: p.montant, raison: p.dateFin && p.prochaine > p.dateFin ? "terminée (date de fin dépassée)" : `prochaine échéance le ${p.prochaine}, au-delà de l'horizon` }); continue; }
     lues.push({ nom: p.nom, montant: p.montant, frequence: p.frequence, prochaine: p.prochaine, nb: dates.length });
-    for (const d of dates) prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: p.virementCompteId && !sourceSuivie ? Math.round(Math.abs(p.montant) * partCompte(suivis.get(p.virementCompteId)) / 100) : Math.round((p.virementCompteId ? -Math.abs(p.montant) : p.montant) * partCompte(suivis.get(p.compteId)) / 100) });
+    for (const d of dates) {
+      const mt = montantEcheance(p, d);
+      prevues.push({ date: d, nom: p.nom, frequence: p.frequence, montant: p.virementCompteId && !sourceSuivie ? Math.round(Math.abs(mt) * partCompte(suivis.get(p.virementCompteId)) / 100) : Math.round((p.virementCompteId ? -Math.abs(mt) : mt) * partCompte(suivis.get(p.compteId)) / 100) });
+    }
   }
   if (!flux.length && !prevues.length) return { insuffisant: true };
   const solde = [...suivis.values()].reduce((s, c) => s + Math.round(soldeCompte(c, operations) * partCompte(c) / 100), 0);

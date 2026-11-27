@@ -44,6 +44,7 @@ const GUIDES = {
     "Pastille à pointer, Comptes suivis, Verrouillage et Mise à jour sont des réglages.",
     "La loupe en haut de l'écran ouvre la recherche globale."] },
   echeancier: { titre: "Échéances", but: "Programmer les opérations qui reviennent (salaire, loyer, abonnements, virements).", points: [
+    "Montant selon le nombre de séances du mois : tarif par séance, jour, frais mensuels et frais uniques de la première échéance ; le nombre de séances de chaque mois se corrige à la main.",
     "Touche + pour créer une opération planifiée : montant, compte, fréquence (mensuelle, annuelle…), prochaine échéance, date de fin facultative.",
     "Tu peux choisir une dépense, une recette ou un virement entre deux comptes.",
     "Les échéances arrivées à terme sont créées automatiquement dans le compte.",
