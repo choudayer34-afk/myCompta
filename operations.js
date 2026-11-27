@@ -11,6 +11,7 @@ import { formRapide } from "./rapide.js";
 import { formOperation } from "./formoperation.js";
 import { formCloture } from "./clotureui.js";
 import { PERIODES, bornesFiltre } from "./periode.js";
+import { boutonsVue, lireVue, lignesSolde } from "./vuesolde.js";
 
 export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
@@ -86,7 +87,7 @@ export function monter(conteneur, { id }) {
     } }, "Modifier…"),
     h("button", { type: "button", class: "sec", onclick: () => basculerMode() }, "Terminer"));
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération", onclick: () => compte() && formOperation({ compteId: id }) }, "+");
-  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), objectifVue, rapide, actionsVue, info, barre, filtres, datesPerso, resumePeriode, liste, ajout, barreSel);
+  conteneur.replaceChildren(enTete, h("div", { class: "resume" }, solde, detailSolde), boutonsVue(() => majListe()), objectifVue, rapide, actionsVue, info, barre, filtres, datesPerso, resumePeriode, liste, ajout, barreSel);
 
   function basculerMode() { mode = !mode; choisies.clear(); message = ""; majListe(); }
 
@@ -120,10 +121,12 @@ export function monter(conteneur, { id }) {
     const enCours = lignes.length ? lignes[0].solde : c.soldeInitial || 0;
     const pointe = soldePointe(c, etat.operations);
     const aDate = soldeADate(c, etat.operations, aujourdhui());
+    const nbAP = etat.operations.filter((o) => o.compteId === id && o.statut === "encours").length;
+    const vueSolde = lignesSolde(lireVue(), { enCours, pointe, aDate, nb: nbAP });
     solde.replaceChildren(nonPointees
       ? h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant solde-filtre" }, euros(pointe)))
-      : h("div", { class: "solde-pointe" }, h("small", {}, "En cours"), h("strong", { class: "montant " + (enCours < 0 ? "neg" : "pos") }, euros(enCours))),
-      h("em", { class: "solde-encours" }, (nonPointees ? `en cours : ${euros(enCours)}` : `pointé : ${euros(pointe)}`) + ` · à date : ${euros(aDate)}`));
+      : h("div", { class: "solde-pointe" }, h("small", {}, vueSolde.gros.libelle), h("strong", { class: "montant " + (vueSolde.gros.neg === null ? "compte-nb" : vueSolde.gros.neg ? "neg" : "pos") }, (vueSolde.gros.neg === null ? String(nbAP) : vueSolde.gros.texte))),
+      h("em", { class: "solde-encours" }, ...(nonPointees ? [`en cours : ${euros(enCours)} · à date : ${euros(aDate)}`] : vueSolde.petits.map((t) => h("span", {}, t)))));
     objectifVue.replaceChildren(blocObjectif(c, enCours, aujourdhui()));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
     const exclus = new Set(etat.planifiees.filter((p) => p.compteId === id || p.virementCompteId === id).map((p) => sansAccent(p.nom).trim()));
@@ -133,7 +136,7 @@ export function monter(conteneur, { id }) {
       ...modeles.map((m) => h("button", { type: "button", class: "puce", title: `${m.nb} fois · dernier montant ${euros(m.dernierMontant)}`,
         onclick: () => formOperation({ compteId: id, modele: { nom: m.nom, categorieId: m.categorieId, nature: m.nature, info: m.info, sens: m.sens, dernierMontant: m.dernierMontant, aExporter: m.aExporter, date: aujourdhui(), statut: "encours" } }) }, m.nom)));
     const aPointer = lignes.filter((x) => x.statut === "encours");
-    detailSolde.textContent = aPointer.length ? `${aPointer.length} à pointer` : "";
+    detailSolde.textContent = "";
     bFiltre.classList.toggle("actif-filtre", nonPointees);
     bFiltre.textContent = nonPointees ? "À pointer ✓" : "À pointer";
     if (nonPointees) lignes = aPointer;
