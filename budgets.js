@@ -94,7 +94,7 @@ export function monter(conteneur) {
     titre,
     h("button", { type: "button", class: "sec", "aria-label": "Mois suivant", onclick: () => { mois = moisDecale(mois, 1); choisies.clear(); maj(); } }, "›"));
   const enTete = h("div", { class: "entete-vue" });
-  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"], ["evolution", "Évolution"], ["comparaison", "Comparer"]]].map(([v, l]) =>
+  const onglets = h("div", { class: "modes-bilan" }, [["plafonds", "Plafonds"], ["repartition", "Répartition"], ["evolution", "Évolution"], ["comparaison", "Comparer"]].map(([v, l]) =>
     h("button", { type: "button", class: "sec", "data-vue": v, onclick: () => { vueCourante = v; repartition = null; maj(); } }, l)));
   const corps = h("div", {});
   const barreSel = h("div", { class: "barre-selection cache" });
