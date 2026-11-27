@@ -22,6 +22,7 @@ const GUIDES = {
     "« Répartition » : où part ton argent, par catégorie et sous-catégorie, en camembert.",
     "« Évolution » et « Comparer » : voir les mois qui précèdent et les comparer.",
     "Touche une catégorie pour ouvrir le détail de ses opérations, les filtrer et les reclasser.",
+    "« Provisions » : met de côté chaque mois une part d'un avis réglé en une fois, montre où tu en es au total et la date de chaque prélèvement. Elle crée l'échéance mensuelle et le prélèvement dans tes comptes.",
     "Les comptes pris en compte se règlent dans Plus, « Comptes suivis »."] },
   previsions: { titre: "Projection", but: "Voir où ira ton solde dans les prochains mois.", points: [
     "Les boutons de comptes en haut choisissent ceux qui comptent. Ton choix est conservé.",
@@ -78,6 +79,7 @@ const GUIDES = {
     "Les dépenses de l'autre personne se saisissent dans la grille : un montant par ligne, Entrée pour passer à la suivante, ou colle plusieurs cellules Excel d'un coup.",
     "« Dépenses récurrentes » : une dépense reprise chaque mois jusqu'à ce que tu la retires.",
     "« Provision du compte commun » : les lignes prélevées sur le compte joint, avec leur mode de partage. Une ligne annuelle est lissée sur 12 mois et la case « crédit » alimente le taux d'endettement.",
+    "Sur chaque ligne de provision, 📅 règle les mois de début et de fin (un avis sur 10 mois, par exemple) et peut créer l'échéance de paiement dans l'échéancier. « avis » répartit le total sur la période.",
     "« Bilan du mois », « Endettement et reste à vivre » et « Évolution » résument la situation de chacun, ou des deux ensemble.",
     "« Nouveau crédit possible » estime le montant empruntable pour rester sous 35 % d'endettement, selon le taux, la durée et l'assurance que tu indiques.",
     "« Bilan graphique » : recettes et dépenses sur 12 mois, reste de chaque mois avec sa tendance, composition des dépenses. Touche un graphique pour lire un mois ; « Voir en tableau » donne les mêmes chiffres.",
@@ -89,6 +91,7 @@ export function cleGuide(hash) {
   if (/^#\/compte\//.test(h0)) return "compte";
   if (h0 === "#/bilan") return "budgets";
   if (h0.startsWith("#/export")) return "export";
+  if (h0 === "#/faq") return "plus";
   const m = h0.match(/^#\/([a-z]+)/);
   return m && GUIDES[m[1]] ? m[1] : "comptes";
 }
@@ -98,6 +101,6 @@ export function afficherAide(hash) {
   const corps = h("div", {},
     h("p", {}, h("strong", {}, g.but)),
     h("ul", { class: "puces" }, ...g.points.map((p) => h("li", {}, p))),
-    h("div", { class: "actions" }, h("button", { type: "button", onclick: () => dialogue.close() }, "Fermer")));
+    h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => { dialogue.close(); location.hash = "#/faq"; } }, "Questions fréquentes"), h("button", { type: "button", onclick: () => dialogue.close() }, "Fermer")));
   const { dialogue } = modale("Aide : " + g.titre, corps);
 }

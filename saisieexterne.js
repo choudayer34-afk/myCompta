@@ -5,7 +5,6 @@ import { aujourdhui, dateFr, euros } from "./format.js";
 import { h, modale } from "./ui.js";
 import { analyserPhrase } from "./phrase.js";
 import { associationPour, cleNom } from "./noms.js";
-import { defautsCompte, exportPourSens } from "./calc.js";
 
 // Lit et retire le paramètre de l'adresse (une seule fois)
 export function lireTexteExterne() {
@@ -34,11 +33,10 @@ export function traiterTexteExterne(texte, ouvrirFormulaire) {
   const categorie = assoc && etat.categories.find((c) => c.id === assoc.categorieId);
   const ligne = (lib, val) => h("div", { class: "ligne-voix" }, h("span", { class: "lib" }, lib), h("span", { class: "val" }, val));
   const enregistrer = () => {
-    const d = defautsCompte(cible);
     const l = lot();
     l.set("operations", nouvelId("operations"), {
-      nom: r.nom, commentaire: "", date: r.date, statut: d.statut, datePointage: d.statut === "pointe" ? aujourdhui() : null, info: "", aExporter: exportPourSens(d.export, r.sens),
-      compteId: cible.id, montant: r.sens * r.montant, nature: d.nature, categorieId: categorie ? categorie.id : null,
+      nom: r.nom, commentaire: "", date: r.date, statut: "encours", datePointage: null, info: "", aExporter: true,
+      compteId: cible.id, montant: r.sens * r.montant, nature: "carte", categorieId: categorie ? categorie.id : null,
       aClasser: !categorie, virementId: null, cree: serverTimestamp()
     });
     l.envoyer();

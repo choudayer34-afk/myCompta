@@ -1,6 +1,5 @@
 import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes, serverTimestamp } from "./store.js";
-import { soldeCompte, soldePointe, partCompte, totauxComptes, defautsCompte } from "./calc.js";
-import { NATURES, EXPORT_PAR_DEFAUT } from "./constantes.js";
+import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 import { dernierSauvegarde } from "./sauvegardeui.js";
@@ -58,15 +57,6 @@ export function formCompte(compte = null) {
   const iObjectif = h("input", { type: "text", inputmode: "decimal", placeholder: "laisser vide : pas d'objectif", autocomplete: "off", value: compte?.objectifMontant ? versSaisie(compte.objectifMontant) : "" });
   const iObjDate = h("input", { type: "date", value: compte?.objectifDate || "" });
   const iEtat = selecteur([["actif", "Actif"], ["archive", "Archivé"]], compte?.archive ? "archive" : "actif");
-  // Valeurs par défaut de la saisie sur ce compte
-  const dflt = defautsCompte(compte);
-  const iDefType = selecteur([["operation", "Opération"], ["virement", "Virement entre comptes"]], dflt.type);
-  const iDefSens = selecteur([["depense", "Dépense"], ["recette", "Recette"]], dflt.sens === 1 ? "recette" : "depense");
-  const iDefStatut = selecteur([["encours", "En cours"], ["pointe", "Pointé"]], dflt.statut);
-  const iDefNature = selecteur(NATURES, dflt.nature);
-  const iDefExport = selecteur(EXPORT_PAR_DEFAUT, dflt.export);
-  const sectionDefauts = h("details", { class: "plus" }, h("summary", {}, "Valeurs par défaut de la saisie"),
-    champ("Type de saisie", iDefType), champ("Sens", iDefSens), champ("Statut", iDefStatut), champ("Nature", iDefNature), champ("Export (à exporter)", iDefExport));
   const erreur = h("p", { class: "erreur" });
 
   const actions = h("div", { class: "actions" },
@@ -84,7 +74,7 @@ export function formCompte(compte = null) {
 
   const { dialogue, formulaire } = modale(compte ? "Modifier le compte" : "Nouveau compte", [
     champ("Nom", iNom), champ("Type", iType), champ("Date d'ouverture", iOuv),
-    champ("Solde initial (€)", iSolde), cEnCours, cPointe, cDateAjust, champ("Couleur", iCouleur), cPart, champ("Objectif d'épargne (€)", iObjectif), champ("Date cible (facultatif)", iObjDate), champ("État", iEtat), sectionDefauts, erreur, actions
+    champ("Solde initial (€)", iSolde), cEnCours, cPointe, cDateAjust, champ("Couleur", iCouleur), cPart, champ("Objectif d'épargne (€)", iObjectif), champ("Date cible (facultatif)", iObjDate), champ("État", iEtat), erreur, actions
   ]);
 
   formulaire.addEventListener("submit", (e) => {
@@ -110,7 +100,6 @@ export function formCompte(compte = null) {
       nom: iNom.value.trim(), type: iType.value, dateOuverture: iOuv.value || null,
       soldeInitial: solde, couleur: iCouleur.value, archive: iEtat.value === "archive", part,
       objectifMontant: objectif, objectifDate: objectif && iObjDate.value ? iObjDate.value : null,
-      defType: iDefType.value, defSens: iDefSens.value, defStatut: iDefStatut.value, defNature: iDefNature.value, defExport: iDefExport.value,
       ...(compte ? {} : { ordre: etat.comptes.reduce((m, c) => Math.max(m, Number.isFinite(c.ordre) ? c.ordre : -1), -1) + 1 })
     });
     l.envoyer();

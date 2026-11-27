@@ -25,8 +25,23 @@ export function parts(netChr, netAle) {
   return t > 0 ? { chr: netChr / t, ale: netAle / t } : { chr: 0.5, ale: 0.5 };
 }
 
-// Montant mensuel d'une ligne de provision (une dépense annuelle est lissée sur 12 mois)
-export const mensualise = (l) => (l.periode === "annuel" ? arrondi((l.montant || 0) / 12) : (l.montant || 0));
+// Nombre de mois d'une période « AAAA-MM » à « AAAA-MM » (bornes incluses) ; 0 si incomplète ou inversée.
+export function nbMoisPeriode(depuis, jusqua) {
+  if (!depuis || !jusqua) return 0;
+  const [a1, m1] = depuis.split("-").map(Number), [a2, m2] = jusqua.split("-").map(Number);
+  const n = (a2 - a1) * 12 + (m2 - m1) + 1;
+  return n > 0 ? n : 0;
+}
+
+// Une ligne de provision compte sur un mois si celui-ci est dans sa période (sans dates : tous les mois).
+export const ligneActive = (l, mois) => !mois || ((!l.depuis || l.depuis <= mois) && (!l.jusqua || mois <= l.jusqua));
+
+// Montant mensuel d'une ligne de provision : « /an » lissé sur 12 mois ; « avis » (total d'un avis) réparti sur les mois de sa période (12 sans dates).
+export const mensualise = (l) => {
+  if (l.periode === "annuel") return arrondi((l.montant || 0) / 12);
+  if (l.periode === "avis") return arrondi((l.montant || 0) / (nbMoisPeriode(l.depuis, l.jusqua) || 12));
+  return l.montant || 0;
+};
 
 // Part de chacun pour une ligne : prorata, 50/50, ou 100 % pour une seule personne
 export function repartLigne(l, p) {
@@ -66,7 +81,7 @@ export function bilanDuo({ params, chrPartagees, ale = [], persoChr = 0, persoAl
   const netChr = netMensuel(brutEnVigueur(P.histoChr, P.brutChr, mois), P.coef), netAle = netMensuel(brutEnVigueur(P.histoAle, P.brutAle, mois), P.coef);
   const p = parts(netChr, netAle);
   let provChr = 0, provAle = 0, credChr = 0, credAle = 0;
-  const lignes = (P.lignes || []).map((l) => { const r = repartLigne(l, p); provChr += r.chr; provAle += r.ale; if (l.credit) { credChr += r.chr; credAle += r.ale; } return { ...l, mensuel: mensualise(l), ...r }; });
+  const lignes = (P.lignes || []).filter((l) => ligneActive(l, mois)).map((l) => { const r = repartLigne(l, p); provChr += r.chr; provAle += r.ale; if (l.credit) { credChr += r.chr; credAle += r.ale; } return { ...l, mensuel: mensualise(l), ...r }; });
   const depAle = ale.reduce((s, x) => s + (x || 0), 0);
   const total = chrPartagees + depAle;
   const partDepChr = arrondi(total * p.chr), partDepAle = total - partDepChr;

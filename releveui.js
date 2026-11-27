@@ -5,7 +5,6 @@ import { euros, dateFr, aujourdhui } from "./format.js";
 import { h, champ, modale } from "./ui.js";
 import { decoder } from "./importcsv.js";
 import { lireReleve, rapprocher } from "./releve.js";
-import { defautsCompte, exportPourSens } from "./calc.js";
 
 const JOUR = 86400000;
 const ecartJours = (a, b) => Math.abs(Date.parse(a + "T12:00:00Z") - Date.parse(b + "T12:00:00Z")) / JOUR;
@@ -162,12 +161,11 @@ export function monter(conteneur) {
     const aCreer = items.filter((x) => x.mode === "creer" && x.creer);
     if (!aPointer.length && !aCreer.length) return;
     const jour = aujourdhui();
-    const regleExport = defautsCompte(etat.comptes.find((c) => c.id === compteId)).export;
     const taches = [
       ...aPointer.map((x) => (l) => l.set("operations", x.opId, { statut: "pointe", datePointage: jour, ...(x.corriger && montantDiff(x) ? { montant: x.ligne.montant } : {}) })),
       ...aCreer.map((x) => (l) => l.set("operations", nouvelId("operations"), {
         nom: x.nom.trim() || "Opération du relevé", commentaire: "Importé du relevé", date: x.ligne.date, montant: x.ligne.montant, compteId,
-        statut: "pointe", datePointage: jour, nature: "autre", categorieId: null, aClasser: true, info: "", aExporter: exportPourSens(regleExport, x.ligne.montant), virementId: null, cree: serverTimestamp() }))
+        statut: "pointe", datePointage: jour, nature: "autre", categorieId: null, aClasser: true, info: "", aExporter: true, virementId: null, cree: serverTimestamp() }))
     ];
     try {
       for (let i = 0; i < taches.length; i += 300) {

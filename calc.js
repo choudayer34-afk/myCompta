@@ -101,20 +101,3 @@ export function modificationsMasse(operations, champ, valeur, jour) {
   }
   return { ecritures, ignorees };
 }
-
-// Réglages de saisie par défaut d'un compte. Un compte sans réglage garde le comportement historique.
-export function defautsCompte(compte) {
-  const c = compte || {};
-  return {
-    export: c.defExport || "tous",
-    statut: c.defStatut === "pointe" ? "pointe" : "encours",
-    nature: c.defNature || "carte",
-    sens: c.defSens === "recette" ? 1 : -1,
-    type: c.defType === "virement" ? "virement" : "operation"
-  };
-}
-
-// Règle d'export (« tous », « depenses », « recettes », « aucune ») appliquée à un sens (négatif = dépense, positif = recette).
-export function exportPourSens(regle, sens) {
-  return regle === "tous" || (regle === "depenses" && sens < 0) || (regle === "recettes" && sens > 0);
-}

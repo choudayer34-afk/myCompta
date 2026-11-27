@@ -5,7 +5,6 @@ import { euros, versCentimes, aujourdhui, dateFr, sansAccent } from "./format.js
 import { h, modale, champ, selecteur, combo } from "./ui.js";
 import { analyserDate, analyserReleve } from "./saisie.js";
 import { nomsConnus, associationPour } from "./noms.js";
-import { defautsCompte, exportPourSens } from "./calc.js";
 
 const ICONES = { encours: "○", pointe: "●" };
 
@@ -17,14 +16,12 @@ export function formRapide({ compteId }) {
   const comptes = etat.comptes.filter((c) => !c.archive || c.id === compteId).sort(comparerComptes);
   const noms = nomsConnus(etat.operations, etat.planifiees).map((n) => ({ id: n.nom, libelle: n.nom }));
   const iCompte = selecteur(comptes.map((c) => [c.id, c.nom]), compteId);
-  const dfl0 = defautsCompte(comptes.find((c) => c.id === compteId));
-  const regle = () => defautsCompte(comptes.find((c) => c.id === iCompte.value)).export;
-  const iNature = selecteur(NATURES, dfl0.nature);
-  let statut = dfl0.statut;
+  const iNature = selecteur(NATURES, "carte");
+  let statut = "encours";
   const boutonsStatut = STATUTS.filter((s) => s[0] !== "annule").map(([v, l]) => h("button", { type: "button", class: "statut-choix", role: "radio", "data-v": v,
     onclick: () => { statut = v; majStatut(); } }, h("span", { class: "ico" }, ICONES[v]), h("small", {}, l)));
   const majStatut = () => boutonsStatut.forEach((b) => { const on = b.dataset.v === statut; b.classList.toggle("actif", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
-  const iExport = h("input", { type: "checkbox", checked: dfl0.export !== "aucune" });
+  const iExport = h("input", { type: "checkbox", checked: true });
   const iDoublons = h("input", { type: "checkbox", checked: true });
   const iMeme = h("input", { type: "checkbox" });
   const iDateCommune = h("input", { type: "text", inputmode: "decimal", placeholder: "jjmmaa ou jj.mm.aaaa", autocomplete: "off", value: jjmmaaaa(aujourdhui()) });
@@ -54,9 +51,8 @@ export function formRapide({ compteId }) {
     const cTitre = combo({ elements: () => noms, texte: val.titre || "", minCaracteres: 3, placeholder: "Titre (suggestions dès 3 lettres)" });
     const iTitre = cTitre.input;
     const iMontant = h("input", { type: "text", inputmode: "decimal", placeholder: "0,00", autocomplete: "off", class: "gros-montant", value: val.montant || "", "aria-label": "Montant" });
-    const ligne = { iDate, gDate, cTitre, iTitre, iMontant, sens: val.sens || -1, exp: iExport.checked && exportPourSens(regle(), val.sens || -1) };
-    let expTouche = false;
-    const bSens = h("button", { type: "button", class: "sens petit", onclick: () => { ligne.sens = -ligne.sens; majSens(); if (!expTouche && iExport.checked) { ligne.exp = exportPourSens(regle(), ligne.sens); ligne.iExp.checked = ligne.exp; } majRecap(); } });
+    const ligne = { iDate, gDate, cTitre, iTitre, iMontant, sens: val.sens || -1, exp: iExport.checked };
+    const bSens = h("button", { type: "button", class: "sens petit", onclick: () => { ligne.sens = -ligne.sens; majSens(); majRecap(); } });
     function majSens() {
       bSens.textContent = ligne.sens === 1 ? "↑" : "↓";
       bSens.classList.toggle("recette", ligne.sens === 1);
@@ -64,7 +60,7 @@ export function formRapide({ compteId }) {
       bSens.setAttribute("aria-label", bSens.title);
     }
     const iExp = h("input", { type: "checkbox", checked: ligne.exp });
-    iExp.addEventListener("change", () => { ligne.exp = iExp.checked; expTouche = true; });
+    iExp.addEventListener("change", () => { ligne.exp = iExp.checked; });
     ligne.iExp = iExp;
     const carte = h("div", { class: "carte-ligne" },
       h("div", { class: "rang haut" }, gDate, h("div", { class: "montant-zone" }, bSens, iMontant)),
@@ -191,14 +187,6 @@ export function formRapide({ compteId }) {
         h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")))
   ]);
   majStatut();
-  // Changer de compte reprend ses valeurs par défaut (nature, statut, export)
-  iCompte.addEventListener("change", () => {
-    const d = defautsCompte(comptes.find((c) => c.id === iCompte.value));
-    iNature.value = d.nature;
-    statut = d.statut; majStatut();
-    iExport.checked = d.export !== "aucune";
-    lignes.forEach((l) => { l.exp = iExport.checked && exportPourSens(d.export, l.sens); l.iExp.checked = l.exp; });
-  });
   iExport.addEventListener("change", () => { lignes.forEach((l) => { l.iExp.checked = iExport.checked; l.exp = iExport.checked; }); });
   for (const el of [iCompte, iDoublons]) el.addEventListener("input", majRecap);
   majRecap();

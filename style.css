@@ -243,13 +243,6 @@ nav a { font-size:.78rem; padding:14px 0; white-space:nowrap; }
 .barre-budget .prevu { background:var(--bb,#16a34a); opacity:.4; }
 .barre-budget.vert { --bb:#16a34a; } .barre-budget.orange { --bb:#ea580c; } .barre-budget.rouge { --bb:#dc2626; }
 .ligne-synthese { display:flex; justify-content:space-between; padding:2px 0; }
-/* Provisions : jauge du provisionné avec repère du rythme prévu */
-.ligne-prov { display:flex; flex-direction:column; gap:4px; }
-.ligne-prov small { color:var(--discret); }
-.jauge-prov { position:relative; height:10px; border-radius:6px; background:var(--bord); margin:8px 0 6px; }
-.jauge-prov .rempli { position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:#16a34a; }
-.jauge-prov.retard .rempli { background:#ea580c; }
-.jauge-prov .repere { position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; background:var(--texte); }
 .reste-budget { margin:4px 0 0; font-weight:700; text-align:right; }
 .ligne-budget { display:block; width:100%; text-align:left; color:var(--texte); font:inherit; cursor:pointer; margin-bottom:10px; }
 .haut-budget { display:flex; justify-content:space-between; gap:8px; }
@@ -394,24 +387,6 @@ h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-wei
 .op-ligne.annule { opacity:.55; }
 .op-ligne.annule .op-nom { text-decoration:line-through; }
 .op-ligne.choisie { background:rgba(15,118,110,.12); }
-.op-export { font-size:.78rem; margin-right:4px; }
-/* Balayage : fond révélé sous la ligne (bleu = export, rouge = suppression) */
-.op-balayage { position:relative; overflow:hidden; }
-.op-balayage + .op-balayage { border-top:1px solid var(--bord); }
-.op-balayage .op-ligne { position:relative; border-top:0; background:var(--carte); touch-action:pan-y; user-select:none; -webkit-user-select:none; }
-.op-balayage .op-ligne.choisie { background:var(--carte) linear-gradient(rgba(15,118,110,.12), rgba(15,118,110,.12)); }
-.op-balayage .op-ligne.annule { opacity:1; }
-.op-balayage .op-ligne.annule > * { opacity:.55; }
-.op-fond { position:absolute; inset:0; display:none; align-items:center; justify-content:space-between; padding:0 16px; color:#fff; font-weight:600; font-size:.9rem; }
-.op-balayage.en-geste .op-fond { display:flex; }
-.op-fond span { opacity:0; }
-.op-balayage.vers-droite .op-fond { background:#2563eb; }
-.op-balayage.vers-droite .fond-export { opacity:1; }
-.op-balayage.vers-gauche .op-fond { background:#dc2626; }
-.op-balayage.vers-gauche .fond-suppr { opacity:1; }
-.op-balayage.arme .op-fond span { font-size:1rem; }
-.bandeau-annuler { position:fixed; left:12px; right:88px; bottom:calc(76px + env(safe-area-inset-bottom)); z-index:7; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-radius:12px; background:#1f2937; color:#fff; font-size:.9rem; box-shadow:0 2px 8px rgba(0,0,0,.3); }
-.bandeau-annuler button { background:none; border:0; color:#7dd3fc; font-weight:600; padding:4px 8px; cursor:pointer; }
 .op-icone { position:relative; flex:0 0 auto; width:42px; height:42px; border-radius:50%; border:0; padding:0; display:flex; align-items:center; justify-content:center; background:var(--bord); cursor:pointer; font-size:1.25rem; color:inherit; }
 .op-icone.sel { font-size:1.4rem; background:transparent; }
 .op-icone .glyphe { line-height:1; }
@@ -422,8 +397,6 @@ h3.groupe { margin:14px 4px 6px; font-size:.9rem; color:var(--discret); font-wei
 .op-nom { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .op-cat { color:var(--discret); font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .op-montant { flex:0 0 auto; font-weight:600; white-space:nowrap; }
-.op-droite { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; }
-.op-encours { color:var(--discret); font-style:italic; font-size:.78rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 
 /* v40 : écran Plus (cartes sur 3 colonnes) */
 .grille-plus { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
@@ -526,7 +499,9 @@ label.ligne-eco { cursor:pointer; }
 .table-provision td.centre input { width:20px; height:20px; }
 .table-provision input[type=text] { width:100%; min-width:0; margin:0; padding:7px 2px; font-size:16px; letter-spacing:-.3px; }
 .table-provision select { width:100%; min-width:0; margin:0; padding:7px 2px; font-size:13px; -webkit-appearance:none; appearance:none; background-image:none; text-align:center; }
-.table-provision th:nth-child(1) { width:11%; } .table-provision th:nth-child(2) { width:19%; } .table-provision th:nth-child(3) { width:26%; } .table-provision th:nth-child(4) { width:15%; } .table-provision th:nth-child(5) { width:23%; } .table-provision th:nth-child(6) { width:6%; }
+.table-provision th:nth-child(1) { width:10%; } .table-provision th:nth-child(2) { width:17%; } .table-provision th:nth-child(3) { width:24%; } .table-provision th:nth-child(4) { width:14%; } .table-provision th:nth-child(5) { width:20%; } .table-provision th:nth-child(6) { width:15%; }
+.table-provision td.actions-ligne { display:table-cell; white-space:nowrap; }
+.table-provision td.actions-ligne button { width:48%; display:inline-block; font-size:.8rem; padding:6px 0; }
 .table-provision button { padding:4px 2px; width:100%; min-width:0; }
 /* Blocs repliables */
 details.bloc-repliable > summary { list-style:none; cursor:pointer; display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-weight:600; }
@@ -568,3 +543,13 @@ details.bloc-repliable > .repli-corps { margin-top:10px; }
 .sw-passe, .sw-tend { height:3px !important; border-radius:2px; vertical-align:middle; width:16px !important; }
 .sw-passe { background:var(--texte); } .sw-tend { background:repeating-linear-gradient(90deg,var(--s1) 0 6px,transparent 6px 9px); }
 .solde-pointe strong.solde-filtre { color:var(--s0); }
+
+/* v84 : questions fréquentes */
+.faq-theme h3 { margin:0 0 6px; font-size:1rem; }
+.faq-q { border-top:1px solid var(--bord); padding:8px 0; }
+.faq-q summary { cursor:pointer; font-weight:600; font-size:.95rem; }
+.faq-q p { margin:6px 0 2px; font-size:.92rem; line-height:1.4; color:var(--texte); }
+
+/* v87 : onglets Budgets plus nombreux */
+.modes-bilan { flex-wrap:wrap; }
+@media (max-width:420px) { .modes-bilan button { font-size:.78rem; padding:6px 2px; min-width:0; } }

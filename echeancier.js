@@ -1,17 +1,16 @@
 import { etat, pret, nouvelId, lot, ecrireEnParallele, serverTimestamp, categoriesTriees, comparerComptes } from "./store.js";
-import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee } from "./planning.js";
-import { euros, versCentimes, versSaisie, dateFr, aujourdhui, finDuMois } from "./format.js";
+import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee, suivante } from "./planning.js";
+import { euros, versCentimes, versSaisie, dateFr, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { NATURES } from "./operations.js";
 import { libelleCategorie } from "./recherche.js";
-import { defautsCompte, exportPourSens } from "./calc.js";
 
-// Crée les opérations « en cours » de toutes les échéances jusqu'à la fin du mois courant (dates futures du mois comprises). Sans risque de doublon : identifiants déterministes.
+// Crée les opérations « en cours » des échéances arrivées à terme. Sans risque de doublon : identifiants déterministes.
 // Retourne { nb, fini } ; `fini` se résout quand le serveur a confirmé (jamais hors connexion).
 export function genererEcheances() {
   if (!etat.uid) return { nb: 0, fini: Promise.resolve() };
   const ids = new Set(etat.operations.map((o) => o.id));
-  const { ecritures, nb } = ecrituresEcheances(etat.planifiees, ids, finDuMois(aujourdhui()), serverTimestamp());
+  const { ecritures, nb } = ecrituresEcheances(etat.planifiees, ids, aujourdhui(), serverTimestamp());
   if (!ecritures.length) return { nb: 0, fini: Promise.resolve() };
   const fini = ecrireEnParallele(ecritures).catch((e) => console.error("Échéances", e));
   return { nb, fini };
@@ -34,17 +33,26 @@ export function formPlanifiee(p = null) {
   const iFreq = selecteur(FREQUENCES, p?.frequence || "mensuel");
   const iProchaine = h("input", { type: "date", required: true, value: p?.prochaine || aujourdhui() });
   const iFin = h("input", { type: "date", value: p?.dateFin || "" });
-  const iInfo = h("input", { type: "text", value: p?.info || "" });
-  const iExport = h("input", { type: "checkbox", checked: p ? !!p.aExporter : exportPourSens(defautsCompte(etat.comptes.find((c) => c.id === iCompte.value)).export, +iSens.value) });
-  const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export (opérations créées)");
-  if (!p) {
-    // Nouvelle planifiée : l'export suit la règle du compte et le sens, tant qu'on n'y a pas touché
-    let exportTouche = false;
-    iExport.addEventListener("change", () => { exportTouche = true; });
-    const majExport = () => { if (!exportTouche) iExport.checked = exportPourSens(defautsCompte(etat.comptes.find((c) => c.id === iCompte.value)).export, +iSens.value); };
-    iCompte.addEventListener("change", majExport);
-    iSens.addEventListener("change", majExport);
+  const iNombre = h("input", { type: "number", min: "1", max: "600", inputmode: "numeric", placeholder: "Ex. 10" });
+  const indiceFin = h("small", { class: "indice-fin" });
+  // Date de la dernière échéance quand on indique un nombre d'échéances (la prochaine échéance compte pour la première).
+  function dateDuNieme(n) {
+    let d = iProchaine.value;
+    for (let i = 1; i < n && d; i++) d = suivante(d, iFreq.value, +iProchaine.value.slice(8, 10));
+    return d;
   }
+  function majNombre() {
+    const n = Math.floor(Number(iNombre.value));
+    if (n >= 1 && iProchaine.value) { iFin.value = dateDuNieme(n); indiceFin.textContent = `Dernière échéance : ${dateFr(iFin.value)}`; }
+    else indiceFin.textContent = "";
+  }
+  iNombre.addEventListener("input", majNombre);
+  iProchaine.addEventListener("change", majNombre);
+  iFreq.addEventListener("change", majNombre);
+  iFin.addEventListener("input", () => { iNombre.value = ""; indiceFin.textContent = ""; });
+  const iInfo = h("input", { type: "text", value: p?.info || "" });
+  const iExport = h("input", { type: "checkbox", checked: p ? !!p.aExporter : true });
+  const cExport = h("label", { class: "case" }, iExport, "Inclure dans l'export (opérations créées)");
   const erreur = h("p", { class: "erreur" });
 
   const cSens = champ("Sens", iSens);
@@ -73,7 +81,7 @@ export function formPlanifiee(p = null) {
   const { dialogue, formulaire } = modale(p ? "Opération planifiée" : "Nouvelle opération planifiée", [
     champ("Type de saisie", iType), champ("Nom", iNom), champ("Commentaire", iCom), cSens,
     champ("Montant (€)", iMontant), cCompte, cDest, cNature, champ("Info", iInfo), cCat,
-    cExport, champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Date de fin (facultative)", iFin), erreur, actions
+    cExport, champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Nombre d'échéances (facultatif, calcule la date de fin)", iNombre), champ("Date de fin (facultative)", iFin), indiceFin, erreur, actions
   ]);
   if (p) formulaire.querySelector(".champ").hidden = true;
   basculer();

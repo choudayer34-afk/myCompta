@@ -1,11 +1,12 @@
 // Écran « Duo » : gestion à deux (recettes, provision du compte commun, dépenses du mois, qui doit quoi).
-import { etat, pret, lot } from "./store.js";
+import { etat, pret, lot, nouvelId, serverTimestamp } from "./store.js";
 import { euros, aujourdhui, moisFr, versCentimes, versSaisie } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
 import { moisDecale } from "./budget.js";
+import { FREQUENCES, suivante } from "./planning.js";
 import { majResume } from "./repli.js";
 import { lignesRecettesDepenses, barresReste, barresComposition, tableauSerie } from "./graphduo.js";
-import { PARAMS_DEFAUT, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, serieDuo, tendance, recurrentesDuMois, montantsDepuisTexte, capaciteEmprunt, SEUIL_ENDETTEMENT } from "./duo.js";
+import { PARAMS_DEFAUT, nbMoisPeriode, mensualise, bilanDuo, depensesPartagees, operationsPartagees, operationsRetirees, operationsManquantes, remboursementsPossibles, brutEnVigueur, vueBilan, evolution, serieDuo, tendance, recurrentesDuMois, montantsDepuisTexte, capaciteEmprunt, SEUIL_ENDETTEMENT } from "./duo.js";
 
 const params = () => ({ ...PARAMS_DEFAUT, ...((etat.reglages.find((r) => r.id === "duo")) || {}) });
 const docMois = (mois) => etat.reglages.find((r) => r.id === "duo_" + mois) || {};
@@ -113,6 +114,8 @@ function formParametres() {
 function formLignes() {
   const P = params();
   const lignes = (P.lignes || []).map((x) => ({ ...x }));
+  let panneauIndex = -1;
+  const panneau = h("div", {});
   if (!lignes.length) lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata", credit: false });
   const modes = [["prorata", "Prorata"], ["5050", "50/50"], ["chr", "100 % " + P.nomChr], ["ale", "100 % " + P.nomAle]];
   const corpsTable = h("tbody", {});
@@ -127,8 +130,8 @@ function formLignes() {
       const mt = h("input", { type: "text", inputmode: "decimal", value: x.montant ? versSaisie(x.montant) : "", placeholder: "Prix", "aria-label": "Prix" });
       mt.addEventListener("input", () => { x.montant = Math.abs(versCentimes(mt.value) || 0); });
       mt.addEventListener("change", () => { if (x.montant) mt.value = versSaisie(x.montant); });
-      const per = selecteur([["mensuel", "/mois"], ["annuel", "/an"]], x.periode || "mensuel", { "aria-label": "Périodicité" });
-      per.addEventListener("change", () => { x.periode = per.value; });
+      const per = selecteur([["mensuel", "/mois"], ["annuel", "/an"], ["avis", "avis"]], x.periode || "mensuel", { "aria-label": "Périodicité" });
+      per.addEventListener("change", () => { x.periode = per.value; if (panneauIndex === i) ouvrirPanneau(i); });
       const mode = selecteur(modes, x.mode || "prorata", { "aria-label": "Répartition" });
       mode.addEventListener("change", () => { x.mode = mode.value; });
       lignesDom.push({ nom, mt });
@@ -140,17 +143,74 @@ function formLignes() {
           lignesDom[i + 1][col].focus();
         });
       }
+      const avecPeriode = x.depuis || x.jusqua || x.echeanceId || x._ech;
       return h("tr", {}, h("td", { class: "centre" }, cr), h("td", {}, nom), h("td", {}, mt), h("td", {}, per), h("td", {}, mode),
-        h("td", {}, h("button", { type: "button", class: "sec", "aria-label": "Retirer cette ligne", onclick: () => { lignes.splice(i, 1); dessiner(); } }, "✕")));
+        h("td", { class: "actions-ligne" }, h("button", { type: "button", class: "sec" + (avecPeriode ? " actif-filtre" : ""), title: "Période et échéance", "aria-label": "Période et échéance", onclick: () => ouvrirPanneau(i) }, "📅"),
+          h("button", { type: "button", class: "sec", "aria-label": "Retirer cette ligne", onclick: () => { lignes.splice(i, 1); panneauIndex = -1; panneau.replaceChildren(); dessiner(); } }, "✕")));
     }));
+  }
+  // Panneau d'une ligne : période (mois de début et de fin) et échéance liée dans l'échéancier. Aucune écriture avant « Enregistrer ».
+  function ouvrirPanneau(i) {
+    panneauIndex = i;
+    const x = lignes[i];
+    const existante = x.echeanceId ? etat.planifiees.find((p) => p.id === x.echeanceId) : null;
+    const comptes = etat.comptes.filter((c) => !c.archive);
+    const iDepuis = h("input", { type: "month", value: x.depuis || "", "aria-label": "À partir de" });
+    const iJusqua = h("input", { type: "month", value: x.jusqua || "", "aria-label": "Jusqu'à" });
+    const indice = h("p", { class: "note" });
+    const aff = () => {
+      const n = nbMoisPeriode(x.depuis, x.jusqua);
+      indice.textContent = !x.depuis && !x.jusqua ? "Sans dates, la ligne compte sur tous les mois."
+        : x.periode === "avis" && n ? `Avis de ${euros(x.montant || 0)} réparti sur ${n} mois : ${euros(mensualise(x))} par mois.`
+        : x.periode === "avis" ? "Indique les deux mois pour répartir le total de l'avis ; sinon il est réparti sur 12 mois."
+        : `La ligne compte du mois ${x.depuis || "du début"} au mois ${x.jusqua || "sans fin"}.`;
+    };
+    iDepuis.addEventListener("input", () => { x.depuis = iDepuis.value || ""; aff(); suggerer(); });
+    iJusqua.addEventListener("input", () => { x.jusqua = iJusqua.value || ""; aff(); suggerer(); });
+    // Échéance liée
+    const coche = h("input", { type: "checkbox", checked: x._ech ? true : null });
+    const p0 = existante || {};
+    const iCompte = selecteur(comptes.map((c) => [c.id, c.nom]), x._ech?.compteId || p0.compteId || (comptes[0] || {}).id);
+    const iFreq = selecteur(FREQUENCES, x._ech?.frequence || p0.frequence || "mensuel");
+    const iPrem = h("input", { type: "date", value: x._ech?.prochaine || p0.prochaine || (x.depuis ? x.depuis + "-01" : aujourdhui()) });
+    const iNb = h("input", { type: "number", min: "1", max: "600", inputmode: "numeric", value: x._ech?.nombre || "" });
+    const montantDefaut = () => {
+      const n = Math.floor(Number(iNb.value)) || 0;
+      if (x.periode === "avis") return n ? Math.round((x.montant || 0) / n) : (x.montant || 0);
+      return x.montant || 0;
+    };
+    const iMt = h("input", { type: "text", inputmode: "decimal", value: versSaisie(x._ech?.montant ?? (p0.montant ? Math.abs(p0.montant) : montantDefaut())) });
+    let montantSaisi = !!(x._ech || p0.montant);
+    const zoneEch = h("div", { class: coche.checked ? "" : "cache" }, champ("Compte débité", iCompte), champ("Fréquence", iFreq), champ("Premier prélèvement", iPrem),
+      champ("Nombre d'échéances", iNb), champ("Montant par prélèvement (€)", iMt), h("p", { class: "note" }, "Les opérations créées ne sont pas marquées « à exporter » : la provision les compte déjà."));
+    const sync = () => {
+      if (!coche.checked) { delete x._ech; return; }
+      x._ech = { compteId: iCompte.value, frequence: iFreq.value, prochaine: iPrem.value, nombre: Math.floor(Number(iNb.value)) || 0, montant: Math.abs(versCentimes(iMt.value) || 0) };
+    };
+    function suggerer() {
+      if (!iNb.value && x.depuis && x.jusqua && iFreq.value === "mensuel") iNb.value = String(nbMoisPeriode(x.depuis, x.jusqua) || "");
+      if (!montantSaisi) iMt.value = versSaisie(montantDefaut());
+      if (x.depuis && !existante && !x._ech) iPrem.value = x.depuis + "-01";
+      sync();
+    }
+    coche.addEventListener("change", () => { zoneEch.classList.toggle("cache", !coche.checked); if (coche.checked) suggerer(); sync(); });
+    iNb.addEventListener("input", () => { if (!montantSaisi) iMt.value = versSaisie(montantDefaut()); sync(); });
+    iMt.addEventListener("input", () => { montantSaisi = true; sync(); });
+    for (const e of [iCompte, iFreq, iPrem]) e.addEventListener("change", () => { if (e === iFreq && !iNb.value) suggerer(); sync(); });
+    aff();
+    panneau.replaceChildren(h("div", { class: "carte" }, h("h4", { style: "margin:0 0 6px" }, `Période : ${x.nom || "cette ligne"}`),
+      champ("À partir de", iDepuis), champ("Jusqu'à", iJusqua), indice,
+      h("label", { class: "case" }, coche, existante ? "Mettre à jour l'échéance liée dans l'échéancier" : "Créer l'échéance dans l'échéancier"), zoneEch,
+      h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => { panneauIndex = -1; panneau.replaceChildren(); dessiner(); } }, "Fermer"))));
+    panneau.scrollIntoView({ block: "nearest" });
   }
   dessiner();
   const table = h("table", { class: "table-provision" },
     h("thead", {}, h("tr", {}, h("th", {}, "Créd."), h("th", {}, "Nom"), h("th", {}, "Prix"), h("th", {}, "Par"), h("th", {}, "Répartition"), h("th", {}, ""))),
     corpsTable);
   const corps = h("div", {},
-    h("p", { class: "note" }, "Dépenses prélevées sur le compte commun ou provisionnées. Une dépense par an est lissée : prix ÷ 12 chaque mois. « Crédit » alimente le taux d'endettement. Entrée passe à la ligne suivante."),
-    h("div", { class: "defile-x" }, table),
+    h("p", { class: "note" }, "Dépenses prélevées sur le compte commun ou provisionnées. « /an » est lissé : prix ÷ 12. « avis » : total d'un avis réparti sur les mois de sa période (bouton 📅). « Crédit » alimente le taux d'endettement. Entrée passe à la ligne suivante."),
+    h("div", { class: "defile-x" }, table), panneau,
     h("button", { type: "button", class: "sec", onclick: () => { lignes.push({ nom: "", montant: 0, periode: "mensuel", mode: "prorata", credit: false }); dessiner(); lignesDom[lignes.length - 1].nom.focus(); } }, "+ Ajouter une ligne"),
     h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"), h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler")));
   const { dialogue, formulaire } = modale("Provision du compte commun", corps);
@@ -158,7 +218,26 @@ function formLignes() {
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const l = lot();
-    l.set("reglages", "duo", { lignes: lignes.filter((x) => (x.nom || "").trim() || x.montant).map((x) => ({ nom: (x.nom || "").trim(), montant: x.montant || 0, periode: x.periode || "mensuel", mode: x.mode || "prorata", credit: !!x.credit })) });
+    const gardees = lignes.filter((x) => (x.nom || "").trim() || x.montant);
+    for (const x of gardees) {
+      const nom = (x.nom || "").trim();
+      if (x._ech && x._ech.prochaine && x._ech.montant) {
+        const e = x._ech, n = e.nombre || 0;
+        let fin = null;
+        if (n > 1) { fin = e.prochaine; for (let k = 1; k < n && fin; k++) fin = suivante(fin, e.frequence, +e.prochaine.slice(8, 10)); }
+        const id = x.echeanceId || nouvelId("planifiees");
+        const donnees = { nom, commentaire: "Provision du Duo", info: "", aExporter: false, montant: -e.montant, compteId: e.compteId, virementCompteId: null, nature: "autre", categorieId: null,
+          frequence: e.frequence, prochaine: e.prochaine, jourAncre: +e.prochaine.slice(8, 10), dateFin: fin };
+        if (!x.echeanceId) donnees.cree = serverTimestamp();
+        l.set("planifiees", id, donnees);
+        x.echeanceId = id;
+      } else if (x.echeanceId) {
+        const ex = etat.planifiees.find((p) => p.id === x.echeanceId);
+        if (ex && ex.nom !== nom) l.set("planifiees", x.echeanceId, { nom });
+      }
+    }
+    l.set("reglages", "duo", { lignes: gardees.map((x) => ({ nom: (x.nom || "").trim(), montant: x.montant || 0, periode: x.periode || "mensuel", mode: x.mode || "prorata", credit: !!x.credit,
+      depuis: x.depuis || "", jusqua: x.jusqua || "", echeanceId: x.echeanceId || null })) });
     l.envoyer(); dialogue.close();
   });
 }
@@ -282,7 +361,7 @@ export function monter(conteneur) {
         detail(`Détail des dépenses : ${P.nomAle}`, [...recurrentes().map((r) => ["", `${r.nom || "Dépense"} (récurrente)`, r.montant]), ...montantsSaisis().map((m, i) => ["", `Dépense ${i + 1}`, m])], "ale"),
         L(`Part : ${P.nomChr} (${pc(b.partChr)})`, euros(b.partDepChr)), L(`Part : ${P.nomAle} (${pc(b.partAle)})`, euros(b.partDepAle))),
       h("div", { class: "carte", "data-resume": `${euros(b.provChr)} · ${euros(b.provAle)}` }, h("h3", { class: "titre-carte" }, "Provision du compte commun"),
-        b.lignes.length ? h("div", {}, ...b.lignes.map((l) => h("div", { class: "ligne-synthese" }, h("span", {}, `${l.nom || "Sans nom"}${l.periode === "annuel" ? " (annuel ÷ 12)" : ""} · ${euros(l.mensuel)}`), h("small", {}, `${euros(l.chr)} / ${euros(l.ale)}`))))
+        b.lignes.length ? h("div", {}, ...b.lignes.map((l) => h("div", { class: "ligne-synthese" }, h("span", {}, `${l.nom || "Sans nom"}${l.periode === "annuel" ? " (annuel ÷ 12)" : l.periode === "avis" ? ` (avis ÷ ${nbMoisPeriode(l.depuis, l.jusqua) || 12})` : ""} · ${euros(l.mensuel)}`), h("small", {}, `${euros(l.chr)} / ${euros(l.ale)}`))))
           : h("p", { class: "note" }, "Aucune ligne. Ajoute tes dépenses du compte commun."),
         L(`À provisionner : ${P.nomChr}`, euros(b.provChr)), L(`À provisionner : ${P.nomAle}`, euros(b.provAle)),
         h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formLignes() }, "Modifier les lignes"))),

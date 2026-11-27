@@ -20,6 +20,7 @@ export function monter(conteneur) {
       carte("👥", "Comptes suivis", () => formComptes()),
       carte("👫", "Duo", aller("#/duo")),
       carte("💡", "Économies", aller("#/economies")),
+      carte("❓", "Questions fréquentes", aller("#/faq")),
       carte("🔒", "Verrouillage", () => formVerrou()),
       carte("🔄", "Mise à jour", () => { const b = document.getElementById("version"); if (b) b.click(); })));
   return { maj() {} };

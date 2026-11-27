@@ -1,4 +1,4 @@
-const VERSION = "v86";
+const VERSION = "v87";
 const CACHE = "compta-" + VERSION;
 const COQUILLE = [
   "./",
@@ -19,6 +19,9 @@ const COQUILLE = [
   "./periode.js",
   "./aide.js",
   "./graphduo.js",
+  "./faq.js",
+  "./provisions.js",
+  "./provisionsui.js",
   "./repli.js",
   "./duo.js",
   "./duoui.js",
@@ -58,9 +61,6 @@ const COQUILLE = [
   "./evolutioncalc.js",
   "./evolution.js",
   "./comparaison.js",
-  "./balayage.js",
-  "./provisions.js",
-  "./provisionsui.js",
   "./suggestion.js",
   "./bilancalc.js",
   "./bilan.js",
