@@ -567,3 +567,20 @@ details.bloc-repliable > .repli-corps { margin-top:10px; }
 /* v92 : solde après chaque opération */
 .op-droite { display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
 .op-solde { font-size:.74rem; color:var(--discret); font-style:italic; white-space:nowrap; }
+
+/* v95 : valeur mise en avant, cartes de comptes allégées, bandeaux lisibles */
+.barre-vue { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+.barre-vue small { color:var(--discret); }
+.choix-vue { display:flex; gap:6px; }
+.choix-vue button { padding:4px 10px; font-size:.85rem; }
+.choix-vue button.actif { background:var(--accent); color:#062a26; border-color:var(--accent); font-weight:700; }
+.montant.compte-nb { color:var(--s0); }
+.ligne.avec-poignee .gauche small.activite { font-size:.7rem; }
+.ligne.avec-poignee .droite small { font-size:.82rem; color:var(--discret); white-space:nowrap; }
+.solde-encours span { display:block; font-style:normal; }
+.solde-pointe strong.compte-nb { font-size:1.8rem; }
+.rappel-budget, .rappel-budget.rouge { color:#1c2523; }
+.rappel-budget a { color:#0f766e; }
+main { padding-bottom:90px; }
+header { flex-wrap:wrap; gap:6px; }
+header > div { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:6px; }
