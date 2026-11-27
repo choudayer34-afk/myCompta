@@ -19,6 +19,7 @@ export const FAQ = [
   ] },
   { theme: "Pointage et relevé", questions: [
     ["Comment pointer une opération ?", "Dans la liste, touche le petit rond à gauche de l'opération : ○ en cours, ● pointée. Touche-le de nouveau pour dépointer."],
+    ["Que se passe-t-il si je pointe une opération à venir ?", "L'application demande confirmation : pointer une opération future signifie qu'elle a déjà eu lieu, sa date devient alors celle du jour. Pour un virement, les deux côtés sont mis à jour. Si tu refuses, rien ne change."],
     ["Que fait le filtre « À pointer » ?", "Il n'affiche que les opérations non pointées. Le gros montant du haut devient alors le solde pointé, en bleu, avec le solde en cours en petit dessous. Retire le filtre pour revenir à l'affichage normal."],
     ["Comment vérifier mon relevé de banque ?", "Dans un compte, « Clôturer un mois » : saisis le solde de ton relevé, coche les opérations présentes sur le relevé. L'écart doit tomber à zéro avant de valider. Si l'écart reste, cherche une opération oubliée ou en trop."],
     ["Que veut dire la pastille rouge sur Comptes ?", "Elle compte les opérations à pointer. Son réglage est dans Plus > Pastille à pointer."]
