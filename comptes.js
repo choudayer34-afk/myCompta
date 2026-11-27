@@ -7,7 +7,7 @@ import { activiteCompte, joursEntre } from "./activite.js";
 import { dateFr } from "./format.js";
 import { formPastille } from "./alertes.js";
 import { blocObjectif } from "./objectif.js";
-import { boutonsVue, lireVue, lignesSolde } from "./vuesolde.js";
+import { boutonsVue, lireVue, lignesSolde, finDuMois } from "./vuesolde.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -172,9 +172,9 @@ export function monter(conteneur) {
         })()),
       (() => {
         const ec = soldeCompte(c, etat.operations);
-        const { gros, petits } = lignesSolde(lireVue(), { enCours: ec, pointe: soldePointe(c, etat.operations), aDate: soldeADate(c, etat.operations, aujourdhui()), nb: nbAPointer(c) });
+        const { gros, petits } = lignesSolde(lireVue(), { enCours: ec, pointe: soldePointe(c, etat.operations), aDate: soldeADate(c, etat.operations, aujourdhui()), finMois: soldeADate(c, etat.operations, finDuMois()), nb: nbAPointer(c) });
         return h("div", { class: "droite" },
-          h("span", { class: "montant" + (gros.neg === null ? " compte-nb" : gros.neg ? " neg" : " pos") }, gros.texte),
+          h("span", { class: "montant" + (gros.neg ? " neg" : " pos") }, gros.texte),
           ...petits.map((t) => h("small", {}, t)));
       })());
     const poignee = glissable && h("span", { class: "poignee", title: "Glisser pour changer l'ordre", "aria-label": "Changer l'ordre" }, "⋮⋮");
@@ -188,6 +188,7 @@ export function monter(conteneur) {
     const actifs = etat.comptes.filter((c) => !c.archive).sort(comparerComptes);
     const archives = etat.comptes.filter((c) => c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     const t = totauxComptes(etat.comptes, etat.operations, aujourdhui());
+    const tFin = totauxComptes(etat.comptes, etat.operations, finDuMois());
     resume.textContent = `${etat.operations.length} opérations`;
     // Rappel de sauvegarde : jamais faite (et des données à protéger) ou datant de plus de 30 jours
     const d = dernierSauvegarde();
@@ -201,6 +202,7 @@ export function monter(conteneur) {
       ligneTotal("En cours", t.enCours, true),
       ligneTotal("En cours à date", t.aDate, true),
       ligneTotal("Pointé", t.pointe, true),
+      ligneTotal("Fin de mois", tFin.aDate, true),
       t.partiels.length ? h("p", { class: "note" }, `Comptes partagés comptés selon ma part : ${t.partiels.map((x) => `${x.nom} ${String(x.part).replace(".", ",")} %`).join(", ")}. Total des soldes complets : en cours ${euros(t.brutEnCours)}, à date ${euros(t.brutADate)}, pointé ${euros(t.brutPointe)}.`) : null);
     totaux.classList.toggle("cache", !actifs.length);
     const noeuds = actifs.map((c) => ligne(c, true));
