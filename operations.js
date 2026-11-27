@@ -11,7 +11,7 @@ import { formRapide } from "./rapide.js";
 import { formOperation } from "./formoperation.js";
 import { formCloture } from "./clotureui.js";
 import { PERIODES, bornesFiltre } from "./periode.js";
-import { boutonsVue, lireVue, lignesSolde } from "./vuesolde.js";
+import { boutonsVue, lireVue, lignesSolde, finDuMois } from "./vuesolde.js";
 
 export { NATURES, STATUTS, formOperation };
 const ICONES = { encours: "○", pointe: "●", annule: "✕" };
@@ -122,10 +122,10 @@ export function monter(conteneur, { id }) {
     const pointe = soldePointe(c, etat.operations);
     const aDate = soldeADate(c, etat.operations, aujourdhui());
     const nbAP = etat.operations.filter((o) => o.compteId === id && o.statut === "encours").length;
-    const vueSolde = lignesSolde(lireVue(), { enCours, pointe, aDate, nb: nbAP });
+    const vueSolde = lignesSolde(lireVue(), { enCours, pointe, aDate, finMois: soldeADate(c, etat.operations, finDuMois()), nb: nbAP });
     solde.replaceChildren(nonPointees
       ? h("div", { class: "solde-pointe" }, h("small", {}, "Pointé"), h("strong", { class: "montant solde-filtre" }, euros(pointe)))
-      : h("div", { class: "solde-pointe" }, h("small", {}, vueSolde.gros.libelle), h("strong", { class: "montant " + (vueSolde.gros.neg === null ? "compte-nb" : vueSolde.gros.neg ? "neg" : "pos") }, (vueSolde.gros.neg === null ? String(nbAP) : vueSolde.gros.texte))),
+      : h("div", { class: "solde-pointe" }, h("small", {}, vueSolde.gros.libelle), h("strong", { class: "montant " + (vueSolde.gros.neg ? "neg" : "pos") }, vueSolde.gros.texte)),
       h("em", { class: "solde-encours" }, ...(nonPointees ? [`en cours : ${euros(enCours)} · à date : ${euros(aDate)}`] : vueSolde.petits.map((t) => h("span", {}, t)))));
     objectifVue.replaceChildren(blocObjectif(c, enCours, aujourdhui()));
     // Saisie rapide : habitudes du compte (hors opérations déjà couvertes par une planification)
