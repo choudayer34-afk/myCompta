@@ -173,6 +173,7 @@ export function monter(conteneur, { id }) {
     const noeuds = [];
     const jourTitre = (iso) => {
       if (iso === aujourdhui()) return "aujourd'hui";
+      if (iso > aujourdhui()) return `${new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "long", ...(new Date(iso + "T12:00:00").getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}) })} · à venir`;
       const hier = new Date(); hier.setDate(hier.getDate() - 1);
       if (iso === `${hier.getFullYear()}-${String(hier.getMonth() + 1).padStart(2, "0")}-${String(hier.getDate()).padStart(2, "0")}`) return "hier";
       const d = new Date(iso + "T12:00:00");
@@ -212,7 +213,9 @@ export function monter(conteneur, { id }) {
           formOperation({ compteId: id, op: etat.operations.find((x) => x.id === o.id) });
         } },
           h("span", { class: "op-texte" }, h("span", { class: "op-nom" }, o.nom), h("small", { class: "op-cat" }, libCat)),
-          h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)))));
+          h("span", { class: "op-droite" },
+            h("span", { class: "montant op-montant " + (o.montant < 0 ? "neg" : "pos") }, euros(o.montant)),
+            o.statut === "annule" ? null : h("small", { class: "op-solde", title: "Solde du compte après cette opération" }, `solde ${euros(o.solde)}`)))));
     }
     if (lignes.length > limite) {
       noeuds.push(h("button", { class: "sec plus", onclick: () => { limite += PAGE; majListe(); } }, `Afficher plus (${lignes.length - limite} restantes)`));
