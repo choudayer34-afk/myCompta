@@ -22,7 +22,6 @@ const GUIDES = {
     "« Répartition » : où part ton argent, par catégorie et sous-catégorie, en camembert.",
     "« Évolution » et « Comparer » : voir les mois qui précèdent et les comparer.",
     "Touche une catégorie pour ouvrir le détail de ses opérations, les filtrer et les reclasser.",
-    "« Provisions » : met de côté chaque mois une part d'un avis réglé en une fois, montre où tu en es au total et la date de chaque prélèvement. Elle crée l'échéance mensuelle et le prélèvement dans tes comptes.",
     "Les comptes pris en compte se règlent dans Plus, « Comptes suivis »."] },
   previsions: { titre: "Projection", but: "Voir où ira ton solde dans les prochains mois.", points: [
     "Les boutons de comptes en haut choisissent ceux qui comptent. Ton choix est conservé.",
@@ -44,6 +43,8 @@ const GUIDES = {
     "Pastille à pointer, Comptes suivis, Verrouillage et Mise à jour sont des réglages.",
     "La loupe en haut de l'écran ouvre la recherche globale."] },
   echeancier: { titre: "Échéances", but: "Programmer les opérations qui reviennent (salaire, loyer, abonnements, virements).", points: [
+    "Deux onglets : « Échéances » et « Provisions ». Une provision met de côté chaque mois une part d'un avis réglé en une fois, avec une vue d'ensemble et la date de chaque prélèvement ; elle crée l'échéance mensuelle et le prélèvement, et garde un lien avec eux.",
+    "Pour corriger une échéance : ouvre-la, puis « Corriger aussi les opérations déjà créées » (appliquer la modification ou recaler les dates). Pour la supprimer avec ses opérations non pointées, coche la case au-dessus de « Supprimer ».",
     "Montant selon le nombre de séances du mois : tarif par séance, jour, frais mensuels et frais uniques de la première échéance ; le nombre de séances de chaque mois se corrige à la main.",
     "Touche + pour créer une opération planifiée : montant, compte, fréquence (mensuelle, annuelle…), prochaine échéance, date de fin facultative.",
     "Tu peux choisir une dépense, une recette ou un virement entre deux comptes.",

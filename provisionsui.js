@@ -4,12 +4,17 @@ import { euros, versCentimes, versSaisie, aujourdhui, dateFr } from "./format.js
 import { h, modale, champ, selecteur } from "./ui.js";
 import { situationProvision, syntheseProvisions, datesVersements, mensualiteProvision } from "./provisions.js";
 import { suivante } from "./planning.js";
+import { blocCorrections, caseSuppression, appliquerAuxOps, recaler, supprimerOps, opsNonPointees } from "./corrections.js";
+import { formPlanifiee } from "./echeancier.js";
 
 const liste = () => ((etat.reglages.find((r) => r.id === "provisions") || {}).liste || []);
 const nomCompte = (id) => { const c = etat.comptes.find((x) => x.id === id); return c ? c.nom : "compte inconnu"; };
 const ecrireListe = (nouvelle, l = lot()) => { l.set("reglages", "provisions", { liste: nouvelle }); return l; };
 
-function formProvision(p = null) {
+// Provision à l'origine d'une échéance (ou null).
+export const provisionDeEcheance = (echeanceId) => (echeanceId ? liste().find((x) => x.echeanceId === echeanceId) || null : null);
+
+export function formProvision(p = null) {
   const comptes = etat.comptes.filter((c) => !c.archive || c.id === p?.compteId).sort(comparerComptes);
   const optComptes = comptes.map((c) => [c.id, c.nom]);
   const iNom = h("input", { type: "text", required: true, value: p?.nom || "", placeholder: "Ex. Assurance habitation 2027" });
@@ -33,12 +38,19 @@ function formProvision(p = null) {
   }
   for (const e of [iTotal, iNb, iPremier]) e.addEventListener("input", aff);
   aff();
+  const corr = p && p.echeanceId ? blocCorrections(p.echeanceId) : { noeud: null, valeurs: () => ({}) };
+  const supp = p && p.echeanceId ? caseSuppression(p.echeanceId) : { noeud: null, coche: () => false, ops: [], nb: 0 };
+  const opPrelev = p && p.operationId ? etat.operations.find((o) => o.id === p.operationId && o.statut === "encours") : null;
+  const casePrelev = opPrelev ? h("label", { class: "case" }, h("input", { type: "checkbox", id: "supp-prelev" }), "Supprimer aussi le prélèvement prévu (non pointé)") : null;
   const actions = h("div", { class: "actions" }, h("button", { type: "submit" }, "Enregistrer"),
     h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler"),
     p && h("button", { type: "button", class: "danger", onclick: () => {
-      if (!confirm("Supprimer cette provision ? L'échéance mensuelle est supprimée ; les opérations déjà créées et le prélèvement prévu sont conservés.")) return;
+      const avecVersements = supp.coche(), avecPrelev = !!(casePrelev && casePrelev.querySelector("input").checked);
+      if (!confirm("Supprimer cette provision ? L'échéance mensuelle est supprimée." + (avecVersements || avecPrelev ? " Les opérations non pointées cochées sont supprimées aussi." : " Les opérations déjà créées et le prélèvement prévu sont conservés."))) return;
       const l = lot();
       if (p.echeanceId) l.del("planifiees", p.echeanceId);
+      if (avecVersements) supprimerOps(l, supp.ops);
+      if (avecPrelev) l.del("operations", p.operationId);
       ecrireListe(liste().filter((x) => x.id !== p.id), l).envoyer();
       dialogue.close();
     } }, "Supprimer"));
@@ -47,7 +59,7 @@ function formProvision(p = null) {
     champ("Premier versement", iPremier), indice, champ("Date du prélèvement de l'avis", iPrelev),
     champ("Compte qui reçoit la provision", iCompte), champ("Versement depuis le compte (facultatif)", iSource), champ("Catégorie du prélèvement (facultatif)", iCat),
     h("label", { class: "case" }, iCreer, p ? "Mettre à jour l'échéance mensuelle et le prélèvement" : "Créer l'échéance mensuelle et le prélèvement dans mes comptes"),
-    h("p", { class: "note" }, "Les opérations créées ne sont pas marquées « à exporter »."), erreur, actions]);
+    h("p", { class: "note" }, "Les opérations créées ne sont pas marquées « à exporter »."), corr.noeud, supp.noeud, casePrelev, erreur, actions]);
   formulaire.addEventListener("submit", (e) => {
     e.preventDefault();
     const c = courant();
@@ -66,7 +78,13 @@ function formProvision(p = null) {
         prochaine: p && p.premier === fiche.premier && p.nb === fiche.nb ? (etat.planifiees.find((x) => x.id === fiche.echeanceId) || {}).prochaine || fiche.premier : fiche.premier,
         jourAncre: ancre, dateFin: dates[dates.length - 1] };
       if (!p?.echeanceId) echeance.cree = serverTimestamp();
+      const c = corr.valeurs();
+      if (c.recaler) echeance.prochaine = fiche.premier;
       l.set("planifiees", fiche.echeanceId, echeance);
+      if (p && p.echeanceId) {
+        const suppr = new Set(c.recaler && c.depuis ? recaler(l, p.echeanceId, c.depuis).map((o) => o.id) : []);
+        if (c.appliquer) appliquerAuxOps(l, { ...echeance, id: fiche.echeanceId }, opsNonPointees(p.echeanceId).filter((o) => !suppr.has(o.id)));
+      }
       fiche.operationId = fiche.operationId || nouvelId("operations");
       const op = { nom: `${nom} (prélèvement)`, commentaire: "Provision", date: fiche.prelevement, statut: "encours", datePointage: null, info: "", aExporter: false,
         compteId: fiche.compteId, montant: -fiche.total, nature: "autre", categorieId: fiche.categorieId, aClasser: !fiche.categorieId, virementId: null };
@@ -107,7 +125,8 @@ export function monter(conteneur) {
           h("div", { class: "ligne-synthese" }, h("span", {}, "Prélèvement"), h("strong", {}, p.prelevement ? dateFr(p.prelevement) : "non daté")),
           s.moisAvantPrelevement != null ? h("p", { class: "note" }, s.moisAvantPrelevement <= 0 ? "Prélèvement ce mois-ci." : `Dans ${s.moisAvantPrelevement} mois.`) : null,
           h("p", { class: "note" }, `${statut} · compte : ${nomCompte(p.compteId)}${p.sourceId ? ` · versé depuis : ${nomCompte(p.sourceId)}` : ""}`),
-          h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formProvision(p) }, "Modifier"))));
+          h("div", { class: "actions" }, h("button", { type: "button", class: "sec", onclick: () => formProvision(p) }, "Modifier"),
+            etat.planifiees.find((x) => x.id === p.echeanceId) ? h("button", { type: "button", class: "sec", onclick: () => formPlanifiee(etat.planifiees.find((x) => x.id === p.echeanceId)) }, "Ouvrir l'échéance") : null)));
       }
     }
     corps.replaceChildren(...noeuds);

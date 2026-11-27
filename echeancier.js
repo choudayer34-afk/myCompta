@@ -2,6 +2,8 @@ import { etat, pret, nouvelId, lot, ecrireEnParallele, serverTimestamp, categori
 import { ecrituresEcheances, FREQUENCES, libelleFrequence, estTerminee, suivante, nbJoursSemaine, moisDesSeances, montantEcheance } from "./planning.js";
 import { euros, versCentimes, versSaisie, dateFr, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur } from "./ui.js";
+import { blocCorrections, caseSuppression, appliquerAuxOps, recaler, supprimerOps, opsNonPointees } from "./corrections.js";
+import * as vueProvisions from "./provisionsui.js";
 import { NATURES } from "./operations.js";
 import { libelleCategorie } from "./recherche.js";
 
@@ -26,7 +28,7 @@ export function formPlanifiee(p = null) {
   const iCom = h("input", { type: "text", value: p?.commentaire || "" });
   const iSens = selecteur([["-1", "Dépense"], ["1", "Recette"]], p && !virement && p.montant > 0 ? "1" : "-1");
   const iMontant = h("input", { type: "text", inputmode: "decimal", required: true, placeholder: "0,00", value: p ? versSaisie(p.montant) : "" });
-  const iCompte = selecteur(optComptes, p?.compteId);
+  const iCompte = selecteur(optComptes, p?.compteId || (comptes[0] || {}).id);
   const iDest = selecteur(optComptes, p?.virementCompteId || (comptes.find((c) => c.id !== (p?.compteId || comptes[0]?.id)) || {}).id);
   const iNature = selecteur(NATURES, p?.nature || "autre");
   const iCat = selecteur([["", "— aucune —"], ...categoriesTriees(false, p?.categorieId).map((c) => [c.id, c.libelle])], p?.categorieId || "");
@@ -103,16 +105,25 @@ export function formPlanifiee(p = null) {
   function basculer() {
     const v = iType.value === "virement";
     cSens.hidden = v; cDest.hidden = !v; cNature.hidden = v; cCat.hidden = v;
-    cCompte.querySelector("label").textContent = v ? "Compte source" : "Compte";
+    cCompte.querySelector("label").textContent = v ? "Compte source (débité)" : iSens.value === "1" ? "Compte crédité" : "Compte débité";
   }
   iType.addEventListener("change", basculer);
+  iSens.addEventListener("change", basculer);
 
+  const corr = p ? blocCorrections(p.id) : { noeud: null, valeurs: () => ({}) };
+  const supp = p ? caseSuppression(p.id) : { noeud: null, coche: () => false };
+  const provision = p ? vueProvisions.provisionDeEcheance(p.id) : null;
+  const lienProvision = provision ? h("p", { class: "note" }, `Cette échéance vient de la provision « ${provision.nom} ». `,
+    h("button", { type: "button", class: "sec", onclick: () => { dialogue.close(); vueProvisions.formProvision(provision); } }, "Ouvrir la provision")) : null;
   const actions = h("div", { class: "actions" },
     h("button", { type: "submit" }, "Enregistrer"),
     h("button", { type: "button", class: "sec", onclick: () => dialogue.close() }, "Annuler"),
     p && h("button", { type: "button", class: "danger", onclick: () => {
-      if (!confirm("Supprimer cette opération planifiée ? Les opérations déjà créées sont conservées.")) return;
-      const l = lot(); l.del("planifiees", p.id); l.envoyer();
+      const avecOps = supp.coche();
+      if (!confirm(avecOps ? `Supprimer cette opération planifiée et ${supp.nb} opération(s) non pointée(s) déjà créée(s) ? Les opérations pointées sont conservées.` : "Supprimer cette opération planifiée ? Les opérations déjà créées sont conservées.")) return;
+      const l = lot(); l.del("planifiees", p.id);
+      if (avecOps) supprimerOps(l, supp.ops);
+      l.envoyer();
       dialogue.close();
     } }, "Supprimer")
   );
@@ -120,7 +131,7 @@ export function formPlanifiee(p = null) {
   const { dialogue, formulaire } = modale(p ? "Opération planifiée" : "Nouvelle opération planifiée", [
     champ("Type de saisie", iType), champ("Nom", iNom), champ("Commentaire", iCom), cSens,
     cMontant, cSeancesOn, cTarif, cJour, cDecal, cFraisM, cFraisU, tableSeances, cCompte, cDest, cNature, champ("Info", iInfo), cCat,
-    cExport, champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Nombre d'échéances (facultatif, calcule la date de fin)", iNombre), champ("Date de fin (facultative)", iFin), indiceFin, erreur, actions
+    cExport, champ("Fréquence", iFreq), champ("Prochaine échéance", iProchaine), champ("Nombre d'échéances (facultatif, calcule la date de fin)", iNombre), champ("Date de fin (facultative)", iFin), indiceFin, lienProvision, corr.noeud, supp.noeud, erreur, actions
   ]);
   if (p) formulaire.querySelector(".champ").hidden = true;
   basculer();
@@ -135,6 +146,7 @@ export function formPlanifiee(p = null) {
     const saisi = seancesOn ? typique : versCentimes(iMontant.value);
     if (saisi === null || saisi === 0) { erreur.textContent = "Montant invalide."; return; }
     const v = iType.value === "virement";
+    if (!iCompte.value) { erreur.textContent = "Choisissez un compte."; return; }
     if (v && iCompte.value === iDest.value) { erreur.textContent = "Choisissez deux comptes différents."; return; }
     if (iFin.value && iFin.value < iProchaine.value) { erreur.textContent = "La date de fin précède la prochaine échéance."; return; }
     const m = Math.abs(saisi);
@@ -149,18 +161,35 @@ export function formPlanifiee(p = null) {
     if (!p) donnees.cree = serverTimestamp();
     const l = lot();
     l.set("planifiees", p?.id || nouvelId("planifiees"), donnees);
+    if (p) {
+      const c = corr.valeurs();
+      const completes = { ...p, ...donnees, id: p.id };
+      const aSupprimer = c.recaler && c.depuis ? recaler(l, p.id, c.depuis) : [];
+      const suppr = new Set(aSupprimer.map((o) => o.id));
+      if (c.appliquer) appliquerAuxOps(l, completes, opsNonPointees(p.id).filter((o) => !suppr.has(o.id)));
+    }
     l.envoyer();
     dialogue.close();
   });
 }
 
 export function monter(conteneur) {
+  let onglet = "echeances";
   const resume = h("div", { class: "resume" });
   const liste = h("div", { class: "liste" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouvelle opération planifiée", onclick: () => formPlanifiee() }, "+");
-  conteneur.replaceChildren(resume, liste, ajout);
+  const zoneEch = h("div", {}, resume, liste, ajout);
+  const zoneProv = h("div", { class: "cache" });
+  const vueProv = vueProvisions.monter(zoneProv);
+  const onglets = h("div", { class: "modes-bilan" }, [["echeances", "Échéances"], ["provisions", "Provisions"]].map(([v, l]) =>
+    h("button", { type: "button", class: "sec", "data-vue": v, onclick: () => { onglet = v; maj(); } }, l)));
+  conteneur.replaceChildren(onglets, zoneEch, zoneProv);
 
   function maj() {
+    onglets.querySelectorAll("button").forEach((b) => b.classList.toggle("actif-filtre", b.dataset.vue === onglet));
+    zoneEch.classList.toggle("cache", onglet !== "echeances");
+    zoneProv.classList.toggle("cache", onglet !== "provisions");
+    vueProv.maj();
     if (!pret()) { liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const comptes = new Map(etat.comptes.map((c) => [c.id, c]));
     resume.textContent = `${etat.planifiees.length} opérations planifiées`;
@@ -180,7 +209,7 @@ export function monter(conteneur) {
         noeuds.push(h("button", { class: "ligne bouton-ligne" + (fin ? " terminee" : ""), style: `border-left-color:${(comptes.get(cid) || {}).couleur || "transparent"}`, onclick: () => formPlanifiee(etat.planifiees.find((x) => x.id === p.id)) },
           h("div", { class: "gauche" },
             h("strong", {}, (p.virementCompteId ? "⇄ " : "") + p.nom),
-            h("small", {}, `${fin ? "terminée" : dateFr(p.prochaine)} · ${libelleFrequence(p.frequence)}${dest ? " · vers " + dest : ""}`),
+            h("small", {}, `${fin ? "terminée" : dateFr(p.prochaine)} · ${libelleFrequence(p.frequence)}${dest ? " · vers " + dest : ""}${vueProvisions.provisionDeEcheance(p.id) ? " · provision" : ""}`),
             h("small", { class: "cat-planifiee" }, p.virementCompteId ? "Virement" : (libelleCategorie(p.categorieId, etat.categories) || "Sans catégorie"))),
           h("div", { class: "droite" },
             h("span", { class: "montant " + (p.montant < 0 ? "neg" : "pos") }, euros(p.seances && p.prochaine ? montantEcheance(p, p.prochaine) : p.montant)))));
