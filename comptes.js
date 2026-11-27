@@ -1,5 +1,5 @@
 import { etat, pret, nouvelId, lot, ecrireEnParallele, comparerComptes, serverTimestamp } from "./store.js";
-import { soldeCompte, soldePointe, partCompte, totauxComptes } from "./calc.js";
+import { soldeCompte, soldePointe, soldeADate, partCompte, totauxComptes } from "./calc.js";
 import { euros, versCentimes, versSaisie, aujourdhui } from "./format.js";
 import { h, modale, champ, selecteur, couleurAuHasard } from "./ui.js";
 import { dernierSauvegarde } from "./sauvegardeui.js";
@@ -170,7 +170,8 @@ export function monter(conteneur) {
         })()),
       h("div", { class: "droite" },
         h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
-        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : ""))));
+        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : "")),
+        soldeADate(c, etat.operations, aujourdhui()) !== soldeCompte(c, etat.operations) ? h("small", {}, "à date : " + euros(soldeADate(c, etat.operations, aujourdhui()))) : null));
     const poignee = glissable && h("span", { class: "poignee", title: "Glisser pour changer l'ordre", "aria-label": "Changer l'ordre" }, "⋮⋮");
     const el = h("div", { class: "ligne avec-poignee", "data-id": c.id, "data-actif": glissable ? "1" : null, style: `border-left-color:${c.couleur || "transparent"}` }, corps, poignee);
     if (poignee) activerGlisser(poignee, el);
@@ -181,7 +182,7 @@ export function monter(conteneur) {
     if (!pret()) { liste.replaceChildren(h("p", { class: "vide" }, "Chargement…")); return; }
     const actifs = etat.comptes.filter((c) => !c.archive).sort(comparerComptes);
     const archives = etat.comptes.filter((c) => c.archive).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
-    const t = totauxComptes(etat.comptes, etat.operations);
+    const t = totauxComptes(etat.comptes, etat.operations, aujourdhui());
     resume.textContent = `${etat.operations.length} opérations`;
     // Rappel de sauvegarde : jamais faite (et des données à protéger) ou datant de plus de 30 jours
     const d = dernierSauvegarde();
@@ -193,8 +194,9 @@ export function monter(conteneur) {
     totaux.replaceChildren(
       h("h3", {}, "Mon argent"),
       ligneTotal("En cours", t.enCours, true),
+      ligneTotal("En cours à date", t.aDate, true),
       ligneTotal("Pointé", t.pointe, true),
-      t.partiels.length ? h("p", { class: "note" }, `Comptes partagés comptés selon ma part : ${t.partiels.map((x) => `${x.nom} ${String(x.part).replace(".", ",")} %`).join(", ")}. Total des soldes complets : en cours ${euros(t.brutEnCours)}, pointé ${euros(t.brutPointe)}.`) : null);
+      t.partiels.length ? h("p", { class: "note" }, `Comptes partagés comptés selon ma part : ${t.partiels.map((x) => `${x.nom} ${String(x.part).replace(".", ",")} %`).join(", ")}. Total des soldes complets : en cours ${euros(t.brutEnCours)}, à date ${euros(t.brutADate)}, pointé ${euros(t.brutPointe)}.`) : null);
     totaux.classList.toggle("cache", !actifs.length);
     const noeuds = actifs.map((c) => ligne(c, true));
     if (!actifs.length && !archives.length) noeuds.push(h("p", { class: "vide" }, "Aucun compte. Touchez + pour en créer un."));
