@@ -7,6 +7,7 @@ import { activiteCompte, joursEntre } from "./activite.js";
 import { dateFr } from "./format.js";
 import { formPastille } from "./alertes.js";
 import { blocObjectif } from "./objectif.js";
+import { boutonsVue, lireVue, lignesSolde } from "./vuesolde.js";
 
 export const TYPES_COMPTE = [
   ["courant", "Compte courant"], ["epargne", "Épargne"], ["assurance-vie", "Assurance vie"],
@@ -114,7 +115,8 @@ export function monter(conteneur) {
   const liste = h("div", { class: "liste" });
   const totaux = h("div", { class: "carte totaux" });
   const ajout = h("button", { class: "flottant", "aria-label": "Nouveau compte", onclick: () => formCompte() }, "+");
-  conteneur.replaceChildren(resume, rappel, liste, totaux, h("p", { class: "centre-bilan" }, bPastille), ajout);
+  const vue = boutonsVue(() => maj());
+  conteneur.replaceChildren(resume, rappel, vue, liste, totaux, h("p", { class: "centre-bilan" }, bPastille), ajout);
 
   const nbAPointer = (c) => etat.operations.filter((o) => o.compteId === c.id && o.statut === "encours").length;
 
@@ -168,10 +170,13 @@ export function monter(conteneur) {
           return h("small", { class: "activite" + (retard ? " retard" : "") },
             `Pointé le ${a.dernierPointage ? dateFr(a.dernierPointage) : "—"}`, a.derniereSaisie ? ` · saisie le ${dateFr(a.derniereSaisie)}` : "");
         })()),
-      h("div", { class: "droite" },
-        h("span", { class: "montant " + (soldeCompte(c, etat.operations) < 0 ? "neg" : "pos") }, euros(soldeCompte(c, etat.operations))),
-        h("small", {}, "pointé : " + euros(soldePointe(c, etat.operations)) + (nbAPointer(c) ? ` · ${nbAPointer(c)} à pointer` : "")),
-        soldeADate(c, etat.operations, aujourdhui()) !== soldeCompte(c, etat.operations) ? h("small", {}, "à date : " + euros(soldeADate(c, etat.operations, aujourdhui()))) : null));
+      (() => {
+        const ec = soldeCompte(c, etat.operations);
+        const { gros, petits } = lignesSolde(lireVue(), { enCours: ec, pointe: soldePointe(c, etat.operations), aDate: soldeADate(c, etat.operations, aujourdhui()), nb: nbAPointer(c) });
+        return h("div", { class: "droite" },
+          h("span", { class: "montant" + (gros.neg === null ? " compte-nb" : gros.neg ? " neg" : " pos") }, gros.texte),
+          ...petits.map((t) => h("small", {}, t)));
+      })());
     const poignee = glissable && h("span", { class: "poignee", title: "Glisser pour changer l'ordre", "aria-label": "Changer l'ordre" }, "⋮⋮");
     const el = h("div", { class: "ligne avec-poignee", "data-id": c.id, "data-actif": glissable ? "1" : null, style: `border-left-color:${c.couleur || "transparent"}` }, corps, poignee);
     if (poignee) activerGlisser(poignee, el);
